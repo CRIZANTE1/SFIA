@@ -1,3 +1,5 @@
+# requirements.txt (versão atualizada)
+
 # ========================
 # Framework Principal
 # ========================
@@ -23,8 +25,7 @@ authlib
 # ========================
 # Processamento de Imagem e QR Code
 # ========================
-opencv-python-headless
-pyzbar
+opencv-python-headless # Já inclui o detector de QR Code
 
 # ========================
 # Visualização (Opcional, mas bom ter)

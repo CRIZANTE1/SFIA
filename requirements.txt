@@ -26,8 +26,10 @@ authlib
 # Processamento de Imagem e QR Code
 # ========================
 opencv-python-headless # Já inclui o detector de QR Code
+qrcode[pil] # Adiciona qrcode e sua dependência Pillow
 
 # ========================
 # Visualização (Opcional, mas bom ter)
 # ========================
 plotly>=5.18.0
+

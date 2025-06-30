@@ -1,5 +1,3 @@
-# gdrive/config.py
-
 import os
 import json
 import streamlit as st

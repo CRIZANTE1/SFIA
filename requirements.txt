@@ -1,10 +1,32 @@
+# ========================
+# Framework Principal
+# ========================
 streamlit>=1.28.0
-numpy>=1.24.0
-plotly>=5.18.0
+
+# ========================
+# Manipulação de Dados e Datas
+# ========================
 pandas>=2.0.0
-openpyxl>=3.1.0 
-authlib
+numpy>=1.24.0
+openpyxl>=3.1.0
+python-dateutil
+
+# ========================
+# Google APIs & Autenticação
+# ========================
 google-api-python-client>=2.108.0
 google-auth-httplib2>=0.1.1
 google-auth-oauthlib>=1.1.0
 google-generativeai
+authlib
+
+# ========================
+# Processamento de Imagem e QR Code
+# ========================
+opencv-python-headless
+pyzbar
+
+# ========================
+# Visualização (Opcional, mas bom ter)
+# ========================
+plotly>=5.18.0

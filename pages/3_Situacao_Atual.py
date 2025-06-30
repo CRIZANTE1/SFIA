@@ -1,42 +1,52 @@
 import streamlit as st
 import pandas as pd
 from datetime import date
-from dateutil.relativedelta import relativedelta
-import sys, os
+import sys
+import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from operations.history import load_sheet_data
+from operations.extinguisher_operations import save_inspection, calculate_next_dates, generate_action_plan
 from auth.login_page import show_login_page, show_user_header, show_logout_button
-from auth.auth_utils import is_admin_user
+from auth.auth_utils import is_admin_user, get_user_display_name
 from operations.demo_page import show_demo_page
 
 def get_consolidated_status_df(df_full):
     if df_full.empty: return pd.DataFrame()
     consolidated_data = []
-    df_full['data_servico'] = pd.to_datetime(df_full['data_servico'], errors='coerce')
+    df_full['data_servico'] = pd.to_datetime(df_full['data_servico'], errors='coerce').dt.date
     df_full.dropna(subset=['data_servico'], inplace=True)
     
-    # Usa o SELO como chave
     unique_selos = df_full['numero_selo_inmetro'].unique()
 
     for selo_id in unique_selos:
         ext_df = df_full[df_full['numero_selo_inmetro'] == selo_id].sort_values(by='data_servico')
+        if ext_df.empty: continue
+        
+        latest_record = ext_df.iloc[-1]
+        
         last_insp_date = ext_df[ext_df['tipo_servico'] == 'Inspeção']['data_servico'].max()
         last_maint2_date = ext_df[ext_df['tipo_servico'] == 'Manutenção Nível 2']['data_servico'].max()
         last_maint3_date = ext_df[ext_df['tipo_servico'] == 'Manutenção Nível 3']['data_servico'].max()
+        
         next_insp = (last_insp_date + relativedelta(months=1)) if pd.notna(last_insp_date) else pd.NaT
         next_maint2 = (last_maint2_date + relativedelta(months=12)) if pd.notna(last_maint2_date) else pd.NaT
         next_maint3 = (last_maint3_date + relativedelta(years=5)) if pd.notna(last_maint3_date) else pd.NaT
+        
         vencimentos = [d for d in [next_insp, next_maint2, next_maint3] if pd.notna(d)]
         if not vencimentos: continue
+        
         proximo_vencimento_real = min(vencimentos)
-        latest_record = ext_df.iloc[-1]
-        today = pd.to_datetime(date.today())
+        
+        today = date.today()
         status_atual, cor = "OK", "green"
+
         if proximo_vencimento_real < today:
-            status_atual, cor = "VENCIDO", "red"
-        elif latest_record.get('aprovado_inspecao') == 'Não':
-            status_atual, cor = "NÃO CONFORME (Aguardando Ação)", "orange"
+            status_atual = "VENCIDO"
+            cor = "red"
+        elif latest_record['aprovado_inspecao'] == 'Não':
+            status_atual = "NÃO CONFORME (Aguardando Ação)"
+            cor = "orange"
         
         consolidated_data.append({
             'numero_selo_inmetro': selo_id,
@@ -49,55 +59,93 @@ def get_consolidated_status_df(df_full):
         })
     return pd.DataFrame(consolidated_data)
 
-def style_status_cell(val, color):
-    return f'background-color: {color}; color: white; border-radius: 5px; padding: 5px; text-align: center;'
-
 def show_dashboard_page():
     st.title("Situação Atual dos Equipamentos de Emergência")
     tab_extinguishers, tab_hoses = st.tabs(["🔥 Extintores", "💧 Mangueiras (em breve)"])
 
     with tab_extinguishers:
         st.header("Dashboard de Extintores")
-        st.info("Este dashboard analisa todo o histórico para mostrar o status real e o vencimento mais próximo de cada extintor.")
+        
+        # Inicializa o estado do editor de dados
+        if "data_editor_key" not in st.session_state:
+            st.session_state["data_editor_key"] = 0
+
         df_full_history = load_sheet_data("extintores")
         if df_full_history.empty:
             st.warning("Ainda não há registros de inspeção para exibir.")
             return
-        with st.spinner("Analisando o status de todos os extintores..."):
-            dashboard_df = get_consolidated_status_df(df_full_history)
+
+        dashboard_df = get_consolidated_status_df(df_full_history)
         if dashboard_df.empty:
             st.warning("Não foi possível gerar o dashboard.")
             return
 
-        status_counts = dashboard_df['status_atual'].value_counts()
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("✅ Total de Extintores", len(dashboard_df))
-        col2.metric("🟢 OK", status_counts.get("OK", 0))
-        col3.metric("🔴 VENCIDO", status_counts.get("VENCIDO", 0))
-        col4.metric("🟠 NÃO CONFORME", status_counts.get("NÃO CONFORME (Aguardando Ação)", 0))
-        st.markdown("---")
+        # Foca nos itens que precisam de ação
+        actionable_df = dashboard_df[dashboard_df['status_atual'] != 'OK'].copy()
+        actionable_df['Ação Concluída'] = False # Adiciona a coluna de checkbox
 
-        st.subheader("Filtrar Extintores")
-        status_filter = st.multiselect("Filtrar por Status:", options=dashboard_df['status_atual'].unique(), default=dashboard_df['status_atual'].unique())
-        filtered_df = dashboard_df[dashboard_df['status_atual'].isin(status_filter)]
+        st.subheader("Painel de Ações Pendentes")
+        st.info("Marque a caixa 'Ação Concluída' para os itens que foram resolvidos. Isso registrará uma nova inspeção 'Conforme' para o equipamento.")
         
-        display_df = filtered_df.rename(columns={
-            'numero_selo_inmetro': 'Selo INMETRO', 'numero_identificacao': 'ID do Cilindro', 'tipo_agente': 'Tipo',
-            'status_atual': 'Status', 'proximo_vencimento': 'Próximo Vencimento',
-            'plano_de_acao': 'Plano de Ação Sugerido'
-        })
-        
-        styler = display_df.style.apply(
-            lambda row: [style_status_cell(row['Status'], row['cor']) if col == 'Status' else '' for col in row.index],
-            axis=1, subset=['Status']
-        ).hide(subset=['cor'], axis=1)
-        st.dataframe(styler, use_container_width=True, hide_index=True)
+        if actionable_df.empty:
+            st.success("🎉 Todos os extintores estão em conformidade! Nenhuma ação pendente.")
+        else:
+            # Usa o data_editor para permitir a interação
+            edited_df = st.data_editor(
+                actionable_df,
+                column_config={
+                    "Ação Concluída": st.column_config.CheckboxColumn(required=True),
+                    "numero_selo_inmetro": "Selo INMETRO",
+                    "status_atual": "Status",
+                    "plano_de_acao": "Plano de Ação",
+                },
+                disabled=["numero_selo_inmetro", "status_atual", "plano_de_acao", "tipo_agente", "proximo_vencimento", "numero_identificacao", "cor"],
+                hide_index=True,
+                use_container_width=True,
+                key=f"data_editor_{st.session_state['data_editor_key']}"
+            )
+
+            # Verifica quais checkboxes foram marcados
+            resolved_items = edited_df[edited_df["Ação Concluída"]]
+            
+            if not resolved_items.empty:
+                if st.button("Confirmar Resolução dos Itens Marcados", type="primary"):
+                    with st.spinner("Registrando ações corretivas..."):
+                        success_count = 0
+                        for index, item in resolved_items.iterrows():
+                            # Busca o registro original completo para ter todos os dados
+                            original_record = df_full_history[df_full_history['numero_selo_inmetro'] == item['numero_selo_inmetro']].sort_values('data_servico').iloc[-1].to_dict()
+                            
+                            # Cria o novo registro de inspeção "Conforme"
+                            new_inspection_record = original_record.copy()
+                            new_inspection_record.update({
+                                'tipo_servico': "Inspeção",
+                                'data_servico': date.today().isoformat(),
+                                'inspetor_responsavel': get_user_display_name(),
+                                'aprovado_inspecao': "Sim",
+                                'observacoes_gerais': f"Ação corretiva aplicada: {item['plano_de_acao']}"
+                            })
+                            new_inspection_record.update(calculate_next_dates(new_inspection_record['data_servico'], 'Inspeção', new_inspection_record['tipo_agente']))
+                            new_inspection_record['plano_de_acao'] = generate_action_plan(new_inspection_record)
+
+                            if save_inspection(new_inspection_record):
+                                success_count += 1
+                        
+                        st.success(f"{success_count} ações foram registradas com sucesso!")
+                        st.info("Atualizando dashboard...")
+                        # Limpa caches e incrementa a chave do editor para forçar a recarga completa
+                        st.cache_data.clear()
+                        st.session_state["data_editor_key"] += 1
+                        st.rerun()
 
     with tab_hoses:
         st.header("Dashboard de Mangueiras de Incêndio")
         st.info("Funcionalidade em desenvolvimento.")
 
-if not show_login_page(): st.stop()
+
+# --- Boilerplate de Autenticação ---
+if not show_login_page():
+    st.stop()
 show_user_header()
 show_logout_button()
 if is_admin_user():

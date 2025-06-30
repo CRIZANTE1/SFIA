@@ -4,8 +4,6 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 import streamlit as st
 import tempfile
-
-# A linha de importação foi limpa para remover as variáveis antigas
 from gdrive.config import get_credentials_dict, GDRIVE_FOLDER_ID, GDRIVE_SHEETS_ID
 
 class GoogleDriveUploader:

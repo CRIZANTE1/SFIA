@@ -1,33 +1,43 @@
-## SFIA - Sistema de Fiscalização por Inteligência Artificial
-## Descrição do Projeto
+# SFIA - Sistema de Fiscalização por Inteligência Artificial
+### Gerenciador de Inspeções de Extintores de Incêndio
 
-O SFIA (Sistema de Fiscalização por Inteligência Artificial) é uma aplicação web desenvolvida para otimizar e padronizar o processo de inspeção de equipamentos de combate a incêndio, como extintores. Ele garante a conformidade com as normas e aumenta a segurança, utilizando inteligência artificial para extrair dados de relatórios em PDF e gerenciar o histórico de inspeções.
+Este é um aplicativo web desenvolvido com Streamlit para otimizar e modernizar o processo de inspeção e manutenção de extintores de incêndio. A ferramenta utiliza a API Generative AI do Google (Gemini) para extrair dados de relatórios em PDF, automatiza o cálculo de vencimentos e planos de ação, e centraliza todos os registros em uma planilha Google Sheets.
 
-## Funcionalidades
+O objetivo é aumentar a eficiência, padronizar os registros de acordo com a norma ABNT NBR 12962 e fornecer um sistema de gestão proativo para a segurança contra incêndio.
 
-- **Autenticação de Usuário**: Sistema de login para acesso seguro, com diferenciação entre usuários administradores e de demonstração.
-- **Inspeção de Extintores (Registro em Lote)**: Permite o upload de relatórios PDF para extração automática de dados de extintores via IA.
-- **Inspeção Rápida por QR Code**: Realiza inspeções rápidas de extintores existentes através da leitura de QR Code.
-- **Histórico de Inspeções**: Consulta e gerenciamento de todas as inspeções realizadas, com dados centralizados em Google Sheets.
-- **Cálculo Automático de Vencimentos**: Calcula automaticamente as próximas datas de inspeção e manutenção.
-- **Geração de Planos de Ação**: Gera planos de ação padronizados para extintores "Não Conformes".
-🛠️ Tecnologias Utilizadas
-Frontend: Streamlit
-Inteligência Artificial: Google AI (Gemini)
-Backend & Banco de Dados: Google Sheets
-Linguagem: Python 3.9+
-Bibliotecas Principais: pandas, google-api-python-client, google-auth-oauthlib, opencv-python-headless, pyzbar, python-dateutil.
-⚙️ Configuração e Instalação
+## ✨ Funcionalidades Principais
+
+*   **🔐 Autenticação de Usuários:** Sistema de login seguro via Google (OIDC), com diferenciação entre usuários administradores (acesso completo) e usuários de demonstração (acesso restrito).
+*   **🤖 Extração com IA (Registro em Lote):** Faça o upload de um relatório de inspeção ou manutenção em PDF e a IA extrai automaticamente os dados de todos os extintores listados, economizando horas de digitação manual.
+*   **📷 Inspeção Rápida com QR Code:** Utilize a câmera do celular ou webcam para escanear o QR Code de um extintor, visualizar seu último status e registrar uma nova inspeção de Nível 1 em segundos.
+*   **🗓️ Cálculo Automático de Vencimentos:** Com base na data e no nível do serviço registrado, o sistema calcula automaticamente as próximas datas de inspeção e manutenções (Nível 2 e Nível 3 - Ensaio Hidrostático).
+*   **📋 Geração de Planos de Ação:** Para cada extintor marcado como "Não Conforme", o sistema gera um plano de ação padronizado (ex: "Programar a repintura corretiva"), transformando registros em tarefas gerenciáveis.
+*   **📊 Histórico Centralizado e Pesquisável:** Todos os registros são salvos em uma planilha Google Sheets, que pode ser visualizada e pesquisada diretamente na página de "Histórico de Inspeções".
+
+## 🛠️ Tecnologias Utilizadas
+
+*   **Frontend:** [Streamlit](https://streamlit.io/)
+*   **Inteligência Artificial:** [Google AI (Gemini)](https://ai.google.dev/)
+*   **Backend & Banco de Dados:** [Google Sheets](https://www.google.com/sheets/about/)
+*   **Linguagem:** Python 3.9+
+*   **Bibliotecas Principais:** `pandas`, `google-api-python-client`, `google-auth-oauthlib`, `opencv-python-headless`, `pyzbar`, `python-dateutil`.
+
+## ⚙️ Configuração e Instalação
+
 Para executar este projeto localmente, siga os passos abaixo.
-1. Pré-requisitos
-Python 3.9 ou superior instalado.
-Uma conta Google e um projeto no Google Cloud Platform.
-2. Clone o Repositório
-Generated bash
+
+### 1. Pré-requisitos
+
+*   Python 3.9 ou superior instalado.
+*   Uma conta Google e um projeto no [Google Cloud Platform](https://console.cloud.google.com/).
+
+### 2. Clone o Repositório
+
+```bash
 git clone <URL_DO_SEU_REPOSITORIO>
 cd <NOME_DA_PASTA_DO_PROJETO>
 Use code with caution.
-Bash
+Markdown
 3. Crie um Ambiente Virtual e Instale as Dependências
 É uma boa prática usar um ambiente virtual para isolar as dependências do projeto.
 Generated bash
@@ -140,8 +150,7 @@ Use code with caution.
 📄 Licença
 Copyright 2024, Cristian Ferreira Carlos. Todos os direitos reservados.
 O uso, redistribuição ou modificação deste código é estritamente proibido sem a permissão expressa do autor.
-
-## 👤 Autor
+👤 Autor
 Cristian Ferreira Carlos
 LinkedIn
 

@@ -5,16 +5,16 @@ from auth.login_page import show_login_page, show_user_header, show_logout_butto
 from auth.auth_utils import is_user_logged_in, is_admin_user
 from operations.demo_page import show_demo_page
 
-def main():
-    st.set_page_config(
-        page_title="SFIA - Inspeção de Equipamentos de Emergência",
-        page_icon="🔧",
-        layout="wide"
-    )
+st.set_page_config(
+    page_title="SFIA - Inspeção de Equipamentos de Emergência",
+    page_icon="🔧",
+    layout="wide"  # Garante que todas as páginas fiquem em modo wide
+)
 
-    # 1. Forçar o login antes de mostrar qualquer coisa
+def main():
+
     if not show_login_page():
-        return # Para a execução se o usuário não estiver logado
+        return 
 
     # 2. Mostrar cabeçalho do usuário e botão de sair
     show_user_header()

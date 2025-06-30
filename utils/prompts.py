@@ -13,7 +13,7 @@ def get_extinguisher_inspection_prompt():
     **Instruções de Análise:**
 
     1.  **Identifique o Contexto:** Primeiro, determine o tipo de relatório.
-        *   **Relatório de Inspeção (Nível 1):** Geralmente mais simples, focado em "STATUS" (CONFORME/N/CONFORME) e "Alterações". A data é proeminente no cabeçalho.
+        *   **Relatório de Inspeção (Nível 1):** Geralmente mais simples, focado em "STATUS" (CONFORME/N/CONFORME) e "Alterações". A data é proeminente no cabeçalho ela ocorre mensalmente.
         *   **Relatório de Manutenção (Nível 2/3):** Mais complexo, com colunas como "ANO FABRIC.", "ÚLTIMO TESTE", e detalhes de componentes e ensaios.
 
     2.  **Extraia Dados Globais:** Identifique informações que se aplicam a todos os extintores, como a data do relatório (use a data mais proeminente, como '27/01/2025' ou 'Data saída'), a empresa executante e o responsável técnico.
@@ -29,7 +29,7 @@ def get_extinguisher_inspection_prompt():
     *   `ano_fabricacao`: Se houver uma coluna "ANO FABRIC.", use-a. Caso contrário, deixe como `null`.
     *   `data_servico`: Use a data global identificada no Passo 2. Formate como YYYY-MM-DD.
     *   `empresa_executante`: Use o nome da empresa executante identificado no Passo 2 (ex: "VIBRA ENERGIA" se for interno, ou o nome da contratada se houver).
-    *   `inspetor_responsavel`: Use o nome do responsável técnico no final ou cabeçalho do documento (ex: "CRISTIAN CARLOS", "Renato Busch").
+    *   `inspetor_responsavel`: Use o nome do responsável técnico no final ou cabeçalho do documento (ex:"Renato Busc").
     *   `aprovado_inspecao`: Extraia da coluna "STATUS". Se o valor for "CONFORME", considere "Sim". Se for "N/CONFORME", considere "Não".
     *   `observacoes_gerais`: Extraia da coluna "Alterações". Se o valor for "S/ALTERAÇÕES", deixe a observação vazia ou `null`. Se houver um código de reparo (ex: "7.PINTURA", "8. MANÔMETRO"), use a legenda "Código de reparos" se disponível no documento para descrever a alteração. Adicione também a informação da coluna "Local". Exemplo: "Local: PE 01. Necessita: Pintura (7)".
 

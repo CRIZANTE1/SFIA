@@ -1,13 +1,10 @@
-# pages/1_Inspecao_de_Extintores.py
-
 import streamlit as st
 import pandas as pd
-import cv2
-from pyzbar.pyzbar import decode
+import cv2  # Usaremos cv2 diretamente
 from datetime import date
 import sys
 import os
-import numpy as np  # <--- IMPORTAÇÃO ADICIONADA AQUI
+import numpy as np
 
 # Adiciona o diretório raiz ao path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -19,20 +16,29 @@ from auth.login_page import show_login_page, show_user_header, show_logout_butto
 from auth.auth_utils import is_admin_user, get_user_display_name
 from operations.demo_page import show_demo_page
 
-# --- Funções para a Aba de Inspeção Rápida ---
+# --- FUNÇÃO ATUALIZADA PARA USAR OPENCV ---
 
 def decode_qr_from_image(image_file):
-    """Decodifica o QR code de um arquivo de imagem."""
+    """Decodifica o QR code de um arquivo de imagem usando o detector do OpenCV."""
     try:
-        # CONVERSÃO CORRIGIDA AQUI
+        # Converte o arquivo de imagem para um array numpy
         file_bytes = np.asarray(bytearray(image_file.read()), dtype=np.uint8)
         img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
-        decoded_objects = decode(img)
-        if decoded_objects:
-            return decoded_objects[0].data.decode('utf-8')
+
+        # Inicializa o detector de QR Code do OpenCV
+        detector = cv2.QRCodeDetector()
+
+        # Tenta detectar e decodificar o QR Code
+        # O método retorna (texto decodificado, pontos do contorno, qrcode_binário)
+        decoded_text, points, _ = detector.detectAndDecode(img)
+
+        # O detector retorna o texto decodificado se encontrar um QR code
+        if decoded_text:
+            return decoded_text
+            
         return None
     except Exception as e:
-        st.error(f"Erro ao processar a imagem: {e}")
+        st.error(f"Erro ao processar a imagem com OpenCV: {e}")
         return None
 
 def find_last_record(df, extinguisher_id):
@@ -44,7 +50,6 @@ def find_last_record(df, extinguisher_id):
         return None
     if 'data_servico' in extinguisher_records.columns:
         extinguisher_records['data_servico'] = pd.to_datetime(extinguisher_records['data_servico'], errors='coerce')
-        # Drop rows where date conversion failed
         extinguisher_records.dropna(subset=['data_servico'], inplace=True)
         if extinguisher_records.empty:
             return None
@@ -56,10 +61,8 @@ def find_last_record(df, extinguisher_id):
 def main_inspection_page():
     st.title("Gerenciamento de Inspeções de Extintores")
 
-    # Cria as abas
     tab_batch, tab_qr = st.tabs(["Registro em Lote por PDF", "Inspeção Rápida por QR Code"])
 
-    # --- Aba 1: Registro em Lote ---
     with tab_batch:
         st.header("Processar Relatório de Inspeção/Manutenção")
         if 'processed_data' not in st.session_state:
@@ -105,7 +108,6 @@ def main_inspection_page():
                 st.session_state.processed_data = None
                 st.rerun()
 
-    # --- Aba 2: Inspeção Rápida por QR Code ---
     with tab_qr:
         st.header("Verificação Rápida de Equipamento")
         if 'qr_id' not in st.session_state:

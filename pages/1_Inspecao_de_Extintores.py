@@ -16,12 +16,32 @@ from auth.auth_utils import is_admin_user, get_user_display_name
 from operations.demo_page import show_demo_page
 
 def decode_qr_from_image(image_file):
+    """
+    Decodifica o QR code, que pode ser simples ou composto (separado por '#').
+    Retorna o Selo INMETRO, que é o identificador principal.
+    """
     try:
         file_bytes = np.asarray(bytearray(image_file.read()), dtype=np.uint8)
         img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
         detector = cv2.QRCodeDetector()
         decoded_text, _, _ = detector.detectAndDecode(img)
-        return decoded_text if decoded_text else None
+
+        if not decoded_text:
+            return None
+
+        # Verifica se o QR code é composto (contém '#')
+        if '#' in decoded_text:
+            parts = decoded_text.split('#')
+            # Assumindo que o Selo INMETRO é o 4º elemento (índice 3)
+            if len(parts) >= 4:
+                return parts[3].strip()  # .strip() para remover espaços em branco
+            else:
+                st.error(f"Formato de QR Code composto inválido: {decoded_text}")
+                return None
+        else:
+            # Se não tiver '#', assume que o dado inteiro é o selo
+            return decoded_text.strip()
+
     except Exception as e:
         st.error(f"Erro ao processar a imagem: {e}")
         return None
@@ -29,7 +49,8 @@ def decode_qr_from_image(image_file):
 def find_last_record(df, search_value, column_name):
     """Função genérica para encontrar o último registro com base em um valor e coluna."""
     if df.empty or column_name not in df.columns: return None
-    records = df[df[column_name] == search_value]
+    # Converte ambos para string para garantir a comparação correta
+    records = df[df[column_name].astype(str) == str(search_value)]
     if records.empty: return None
     if 'data_servico' in records.columns:
         records['data_servico'] = pd.to_datetime(records['data_servico'], errors='coerce')
@@ -43,7 +64,7 @@ def main_inspection_page():
     tab_batch, tab_qr = st.tabs(["Registro em Lote por PDF", "Inspeção Rápida por QR Code"])
 
     with tab_batch:
-        # ... (código da aba de lote não muda)
+        # Código da aba de lote não muda
         st.header("Processar Relatório de Inspeção/Manutenção")
         if 'processed_data' not in st.session_state: st.session_state.processed_data = None
         st.subheader("1. Selecione o Serviço e Faça o Upload")
@@ -91,7 +112,7 @@ def main_inspection_page():
                 st.session_state.qr_id = decoded_id
                 st.success(f"QR Code lido! Selo INMETRO: **{st.session_state.qr_id}**")
             else:
-                st.warning("Nenhum QR Code detectado.")
+                st.warning("Nenhum QR Code detectado ou formato inválido.")
             st.rerun()
         if st.session_state.qr_id:
             df_full_history = load_sheet_data("extintores")

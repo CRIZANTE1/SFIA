@@ -1,5 +1,3 @@
-# operations/extinguisher_operations.py
-
 import streamlit as st
 import pandas as pd
 from datetime import date
@@ -13,51 +11,58 @@ uploader = GoogleDriveUploader()
 pdf_qa = PDFQA()
 
 def generate_action_plan(record):
-    """
-    Gera um plano de ação padronizado com base no status e nas observações.
-    """
+    """Gera um plano de ação padronizado com base no status e nas observações."""
     aprovado = record.get('aprovado_inspecao')
     observacoes = record.get('observacoes_gerais', '').upper()
-
     if aprovado == "Sim":
         return "Manter em monitoramento periódico."
-
     if aprovado == "Não":
-        if "PINTURA" in observacoes:
-            return "Programar a repintura corretiva do extintor."
-        elif "MANÔMETRO" in observacoes:
-            return "Realizar a substituição imediata do manômetro."
-        elif "GATILHO" in observacoes:
-            return "Realizar a substituição do conjunto de gatilho."
-        elif "MANGOTE" in observacoes or "MANGUEIRA" in observacoes:
-            return "Realizar a substituição da mangueira/mangote."
-        elif "RECARREGANDO" in observacoes or "RECARGA" in observacoes:
-            return "Enviar o extintor para o processo de recarga."
-        elif "LACRE" in observacoes:
-            return "Substituir lacre e verificar motivo da violação."
-        else:
-            return f"Analisar e corrigir a não conformidade: {record.get('observacoes_gerais', '')}"
-    
+        if "PINTURA" in observacoes: return "Programar a repintura corretiva do extintor."
+        if "MANÔMETRO" in observacoes: return "Realizar a substituição imediata do manômetro."
+        if "GATILHO" in observacoes: return "Realizar a substituição do conjunto de gatilho."
+        if "MANGOTE" in observacoes or "MANGUEIRA" in observacoes: return "Realizar a substituição da mangueira/mangote."
+        if "RECARREGANDO" in observacoes or "RECARGA" in observacoes: return "Enviar o extintor para o processo de recarga."
+        if "LACRE" in observacoes: return "Substituir lacre e verificar motivo da violação."
+        return f"Analisar e corrigir a não conformidade: {record.get('observacoes_gerais', '')}"
     return "N/A"
 
 def calculate_next_dates(service_date_str, service_level, extinguisher_type):
+    """
+    Calcula as próximas datas de serviço com base na data e nível de serviço.
+    Inspeção agora é MENSAL.
+    """
     if not service_date_str: return {}
-    service_date = date.fromisoformat(service_date_str)
-    extinguisher_type = extinguisher_type or ""
-    freq_inspecao_meses = 6 if "CO2" in extinguisher_type.upper() else 12
-    freq_manutencao_2_meses = 12
-    freq_manutencao_3_anos = 5
-    proxima_inspecao = service_date + relativedelta(months=freq_inspecao_meses)
-    proxima_manutencao_2 = service_date + relativedelta(months=freq_manutencao_2_meses)
-    proxima_manutencao_3 = service_date + relativedelta(years=freq_manutencao_3_anos)
-    return {
-        'data_proxima_inspecao': proxima_inspecao.isoformat(),
-        'data_proxima_manutencao_2_nivel': proxima_manutencao_2.isoformat(),
-        'data_proxima_manutencao_3_nivel': proxima_manutencao_3.isoformat(),
-        'data_ultimo_ensaio_hidrostatico': service_date.isoformat() if service_level == "Manutenção Nível 3" else None,
+    
+    try:
+        service_date = date.fromisoformat(service_date_str)
+    except (ValueError, TypeError):
+        return {} 
+
+    dates = {
+        'data_proxima_inspecao': None,
+        'data_proxima_manutencao_2_nivel': None,
+        'data_proxima_manutencao_3_nivel': None,
+        'data_ultimo_ensaio_hidrostatico': None,
     }
 
+    if service_level == "Inspeção":
+        # ALTERAÇÃO AQUI: Frequência de inspeção fixada em 1 mês.
+        freq_inspecao_meses = 1
+        dates['data_proxima_inspecao'] = (service_date + relativedelta(months=freq_inspecao_meses)).isoformat()
+    
+    elif service_level == "Manutenção Nível 2":
+        freq_manutencao_2_meses = 12
+        dates['data_proxima_manutencao_2_nivel'] = (service_date + relativedelta(months=freq_manutencao_2_meses)).isoformat()
+
+    elif service_level == "Manutenção Nível 3":
+        freq_manutencao_3_anos = 5
+        dates['data_proxima_manutencao_3_nivel'] = (service_date + relativedelta(years=freq_manutencao_3_anos)).isoformat()
+        dates['data_ultimo_ensaio_hidrostatico'] = service_date.isoformat()
+        
+    return dates
+
 def process_extinguisher_pdf(uploaded_file):
+    """Processa um PDF de inspeção de extintor usando IA para extrair dados em lote."""
     if uploaded_file:
         prompt = get_extinguisher_inspection_prompt()
         extracted_data = pdf_qa.extract_structured_data(uploaded_file, prompt)
@@ -70,6 +75,7 @@ def process_extinguisher_pdf(uploaded_file):
     return None
 
 def save_inspection(data):
+    """Salva os dados de UMA inspeção no Google Sheets."""
     extinguisher_id = data.get('numero_identificacao', 'N/A')
     data_row = [
         data.get('numero_identificacao'), data.get('tipo_agente'), data.get('capacidade'),

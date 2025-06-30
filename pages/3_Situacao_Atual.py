@@ -34,7 +34,9 @@ def determine_current_status(row):
         elif pd.notna(prox_manut_3): prazo = prox_manut_3.strftime('%d/%m/%Y')
     return status, prazo, color
 
-def style_status_column(val, color):
+def style_status_column(status, color_map):
+    """Aplica cor à célula de status com base no seu valor."""
+    color = color_map.get(status, 'grey') # Cor padrão cinza se o status não for encontrado
     return f'background-color: {color}; color: white; border-radius: 5px; padding: 5px; text-align: center;'
 
 def show_dashboard_page():
@@ -77,23 +79,24 @@ def show_dashboard_page():
             
             display_df = filtered_df[[
                 'numero_identificacao', 'tipo_agente', 'status_atual', 
-                'proximo_vencimento', 'plano_de_acao', 'cor'
+                'proximo_vencimento', 'plano_de_acao'
             ]].rename(columns={
                 'numero_identificacao': 'ID do Extintor', 'tipo_agente': 'Tipo de Agente',
                 'status_atual': 'Status Atual', 'proximo_vencimento': 'Próximo Vencimento',
                 'plano_de_acao': 'Plano de Ação'
             })
-
-            def apply_row_styling(row):
-                color = row['cor']
-                # Aplica o estilo apenas à coluna 'Status Atual'
-                return [style_status_column(row['Status Atual'], color) if col == 'Status Atual' else '' for col in row.index]
-
+            
             # --- CORREÇÃO APLICADA AQUI ---
+            # Mapeia o status à sua cor para a função de estilização
+            color_map = pd.Series(filtered_df['cor'].values, index=filtered_df['status_atual']).to_dict()
+            
             st.dataframe(
-                display_df.style.apply(apply_row_styling, axis=1).hide(subset=['cor'], axis=1),
+                display_df.style.applymap(
+                    lambda val: style_status_column(val, color_map), 
+                    subset=['Status Atual']
+                ),
                 use_container_width=True,
-                hide_index=True # Opcional: esconde o índice numérico do DataFrame
+                hide_index=True
             )
 
     with tab_hoses:

@@ -50,7 +50,7 @@ def assign_visual_properties(df):
     
     # 2. Definir Tamanho por Capacidade
     df['capacidade_num'] = pd.to_numeric(df['capacidade'].astype(str).str.extract(r'(\d+\.?\d*)')[0], errors='coerce').fillna(1)
-    df['size'] = 0.3 + (df['capacidade_num'] * 0.3)
+    df['size'] = 0.1 + (df['capacidade_num'] * 0.3)
     
     return df
 

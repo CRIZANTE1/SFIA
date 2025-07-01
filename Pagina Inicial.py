@@ -5,7 +5,7 @@ from auth.login_page import show_login_page, show_user_header, show_logout_butto
 from auth.auth_utils import is_user_logged_in, is_admin_user
 from operations.demo_page import show_demo_page
 
-
+def pageconfig():
 st.set_page_config(
     page_title="SFIA - Inspeção de Equipamentos de Emergência",
     page_icon="🔧",
@@ -13,7 +13,8 @@ st.set_page_config(
 )
 
 def main():
-   
+    pageconfig()
+    
     if not is_user_logged_in():
         show_login_page()
        

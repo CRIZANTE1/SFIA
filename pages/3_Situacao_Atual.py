@@ -14,8 +14,11 @@ from operations.demo_page import show_demo_page
 def get_consolidated_status_df(df_full):
     if df_full.empty: return pd.DataFrame()
     consolidated_data = []
-    df_full['data_servico'] = pd.to_datetime(df_full['data_servico'], errors='coerce').dt.date
+    
+    # Converte para datetime para cálculos, mas mantém como objeto date no final se não tiver hora.
+    df_full['data_servico'] = pd.to_datetime(df_full['data_servico'], errors='coerce')
     df_full.dropna(subset=['data_servico'], inplace=True)
+    
     unique_selos = df_full['numero_selo_inmetro'].unique()
 
     for selo_id in unique_selos:
@@ -37,10 +40,13 @@ def get_consolidated_status_df(df_full):
         
         proximo_vencimento_real = min(vencimentos)
         
-        today = date.today()
+        # --- CORREÇÃO APLICADA AQUI ---
+        # Converte a data de hoje para um Timestamp do Pandas para a comparação
+        today_ts = pd.Timestamp(date.today())
+        
         status_atual, cor = "OK", "green"
 
-        if proximo_vencimento_real < pd.Timestamp(today):
+        if proximo_vencimento_real < today_ts:
             status_atual = "VENCIDO"
             cor = "red"
         elif latest_record.get('aprovado_inspecao') == 'Não':
@@ -57,6 +63,8 @@ def get_consolidated_status_df(df_full):
             'cor': cor
         })
     return pd.DataFrame(consolidated_data)
+
+# (O resto do arquivo permanece o mesmo)
 
 def style_status_cell(val, color):
     return f'background-color: {color}; color: white; border-radius: 5px; padding: 5px; text-align: center;'
@@ -121,7 +129,7 @@ def show_dashboard_page():
         st.info("Funcionalidade em desenvolvimento.")
 
 
-
+# --- Boilerplate de Autenticação ---
 if not show_login_page():
     st.stop()
 show_user_header()

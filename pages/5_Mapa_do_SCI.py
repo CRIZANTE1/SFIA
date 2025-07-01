@@ -88,7 +88,7 @@ def show_map_page():
         tamanho_do_ponto = 0.3
 
         # 3. Exibe o mapa com o tamanho personalizado
-        st.map(map_data, zoom=16, size=tamanho_do_ponto, color="#0044ff")
+        st.map(map_data, zoom=16, size=tamanho_do_ponto)
 
         with st.expander("Ver detalhes dos equipamentos no mapa"):
             st.dataframe(

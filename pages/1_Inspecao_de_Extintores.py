@@ -6,7 +6,9 @@ from datetime import date
 import sys
 import os
 from streamlit_js_eval import streamlit_js_eval
+from config.page_config import set_page_config 
 
+set_page_config()
 # Adiciona o diretório raiz ao path para encontrar os outros módulos
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from operations.extinguisher_operations import (

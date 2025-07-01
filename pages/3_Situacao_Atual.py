@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import date
-from dateutil.relativedelta import relativedelta  # <--- IMPORTAÇÃO ADICIONADA AQUI
+from dateutil.relativedelta import relativedelta  # <--- LINHA DE IMPORTAÇÃO CORRIGIDA
 import sys
 import os
 
@@ -22,10 +22,9 @@ def get_consolidated_status_df(df_full):
 
     consolidated_data = []
     
-    # Converte colunas de data uma vez para melhor performance
     df_full['data_servico'] = pd.to_datetime(df_full['data_servico'], errors='coerce').dt.date
     df_full.dropna(subset=['data_servico'], inplace=True)
-
+    
     unique_selos = df_full['numero_selo_inmetro'].unique()
 
     for selo_id in unique_selos:
@@ -38,7 +37,6 @@ def get_consolidated_status_df(df_full):
         last_maint2_date = ext_df[ext_df['tipo_servico'] == 'Manutenção Nível 2']['data_servico'].max()
         last_maint3_date = ext_df[ext_df['tipo_servico'] == 'Manutenção Nível 3']['data_servico'].max()
         
-        # Agora a função 'relativedelta' será encontrada
         next_insp = (last_insp_date + relativedelta(months=1)) if pd.notna(last_insp_date) else pd.NaT
         next_maint2 = (last_maint2_date + relativedelta(months=12)) if pd.notna(last_maint2_date) else pd.NaT
         next_maint3 = (last_maint3_date + relativedelta(years=5)) if pd.notna(last_maint3_date) else pd.NaT
@@ -46,7 +44,7 @@ def get_consolidated_status_df(df_full):
         vencimentos = [d for d in [next_insp, next_maint2, next_maint3] if pd.notna(d)]
         if not vencimentos: continue
         
-        proximo_vencimento_real = min(vencimentos).date() # Pega apenas a data
+        proximo_vencimento_real = min(vencimentos)
         
         today = date.today()
         status_atual, cor = "OK", "green"
@@ -54,7 +52,7 @@ def get_consolidated_status_df(df_full):
         if proximo_vencimento_real < today:
             status_atual = "VENCIDO"
             cor = "red"
-        elif latest_record['aprovado_inspecao'] == 'Não':
+        elif latest_record.get('aprovado_inspecao') == 'Não':
             status_atual = "NÃO CONFORME (Aguardando Ação)"
             cor = "orange"
         
@@ -67,11 +65,9 @@ def get_consolidated_status_df(df_full):
             'plano_de_acao': latest_record.get('plano_de_acao'),
             'cor': cor
         })
-
     return pd.DataFrame(consolidated_data)
 
 def style_status_cell(val, color):
-    """Aplica cor à célula de status."""
     return f'background-color: {color}; color: white; border-radius: 5px; padding: 5px; text-align: center;'
 
 def show_dashboard_page():
@@ -94,7 +90,6 @@ def show_dashboard_page():
             st.warning("Não foi possível gerar o dashboard. Verifique se os dados na planilha estão corretos.")
             return
 
-        # Resto da função show_dashboard_page permanece o mesmo
         status_counts = dashboard_df['status_atual'].value_counts()
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("✅ Total de Extintores", len(dashboard_df))

@@ -6,10 +6,6 @@ from datetime import date
 import sys
 import os
 from streamlit_js_eval import streamlit_js_eval
-from config.page_config import set_page_config 
-
-set_page_config()
-
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from operations.extinguisher_operations import (
@@ -20,6 +16,9 @@ from gdrive.gdrive_upload import GoogleDriveUploader
 from auth.login_page import show_login_page, show_user_header, show_logout_button
 from auth.auth_utils import is_admin_user, get_user_display_name
 from operations.demo_page import show_demo_page
+from config.page_config import set_page_config 
+
+set_page_config()
 
 # --- Funções para a Aba de Inspeção Rápida ---
 def decode_qr_from_image(image_file):

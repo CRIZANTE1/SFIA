@@ -35,5 +35,4 @@ Pillow
 # ========================
 plotly>=5.18.0
 
-streamlit-geolocation
-
+streamlit-js-eval 

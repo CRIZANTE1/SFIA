@@ -46,8 +46,9 @@ def assign_color_by_agent(df):
     ]
     choices = [color_map['ABC'], color_map['BC'], color_map['CO2'], color_map['Água'], color_map['Espuma']]
     
-  
-    df['color'] = np.select(conditions, choices, default=default_color).tolist()
+    color_array = np.select(conditions, choices, default=default_color)
+
+    df['color'] = [list(c) for c in color_array]
     
     return df
 
@@ -77,7 +78,7 @@ def show_map_page():
                 
         map_data = locations_df.rename(columns={'latitude': 'lat', 'longitude': 'lon'})
         
-        st.map(map_data, zoom=16, size=0.3, color='color')
+        st.map(map_data, zoom=16, size=30, color='color')
 
         with st.expander("Ver detalhes e legenda de cores"):
             st.markdown("##### Legenda de Cores")

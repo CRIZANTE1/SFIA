@@ -4,6 +4,7 @@ from datetime import date
 from dateutil.relativedelta import relativedelta
 import sys
 import os
+import numpy as np # Importa o numpy para usar np.where
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from operations.history import load_sheet_data
@@ -13,7 +14,6 @@ from operations.demo_page import show_demo_page
 from config.page_config import set_page_config 
 
 set_page_config()
-
 
 def get_consolidated_status_df(df_full):
     if df_full.empty: return pd.DataFrame()
@@ -45,6 +45,9 @@ def get_consolidated_status_df(df_full):
         status_atual, cor = "OK", "green"
         if proximo_vencimento_real < today_ts: status_atual = "VENCIDO"; cor = "red"
         elif latest_record.get('aprovado_inspecao') == 'Não': status_atual = "NÃO CONFORME (Aguardando Ação)"; cor = "orange"
+
+        # --- LÓGICA DE STATUS DE INSTALAÇÃO ADICIONADA AQUI ---
+        status_instalacao = "✅ Instalado" if pd.notna(latest_record.get('latitude')) and pd.notna(latest_record.get('longitude')) else "⚠️ Não Instalado"
         
         consolidated_data.append({
             'numero_identificacao': ext_id,
@@ -52,12 +55,12 @@ def get_consolidated_status_df(df_full):
             'tipo_agente': latest_record.get('tipo_agente'),
             'status_atual': status_atual,
             'proximo_vencimento_geral': proximo_vencimento_real.strftime('%d/%m/%Y'),
-            # Adiciona os vencimentos individuais para exibição no expander
             'prox_venc_inspecao': next_insp.strftime('%d/%m/%Y') if pd.notna(next_insp) else "N/A",
             'prox_venc_maint2': next_maint2.strftime('%d/%m/%Y') if pd.notna(next_maint2) else "N/A",
             'prox_venc_maint3': next_maint3.strftime('%d/%m/%Y') if pd.notna(next_maint3) else "N/A",
             'plano_de_acao': latest_record.get('plano_de_acao'),
-            'cor': cor
+            'cor': cor,
+            'status_instalacao': status_instalacao # Adiciona o novo campo
         })
     return pd.DataFrame(consolidated_data)
 
@@ -76,25 +79,22 @@ def show_dashboard_page():
         if dashboard_df.empty:
             st.warning("Não foi possível gerar o dashboard."); return
 
-        # (código das métricas não muda)
         status_counts = dashboard_df['status_atual'].value_counts()
         col1, col2, col3, col4 = st.columns(4); col1.metric("✅ Total", len(dashboard_df)); col2.metric("🟢 OK", status_counts.get("OK", 0)); col3.metric("🔴 VENCIDO", status_counts.get("VENCIDO", 0)); col4.metric("🟠 NÃO CONFORME", status_counts.get("NÃO CONFORME (Aguardando Ação)", 0)); st.markdown("---")
         
-        # (código do filtro não muda)
         status_filter = st.multiselect("Filtrar por Status:", options=dashboard_df['status_atual'].unique(), default=dashboard_df['status_atual'].unique())
         filtered_df = dashboard_df[dashboard_df['status_atual'].isin(status_filter)]
         
-        # --- CORREÇÃO: Lógica de exibição com expanders ---
         st.subheader("Lista de Equipamentos")
         
         if filtered_df.empty:
             st.info("Nenhum item corresponde ao filtro selecionado.")
         else:
             for index, row in filtered_df.iterrows():
-                # Define o ícone e a cor do status para o título do expander
                 status_icon = "🟢" if row['status_atual'] == 'OK' else ('🔴' if row['status_atual'] == 'VENCIDO' else '🟠')
                 
-                expander_title = f"{status_icon} **ID:** {row['numero_identificacao']} | **Tipo:** {row['tipo_agente']} | **Status:** {row['status_atual']}"
+                # --- EXIBIÇÃO DO NOVO STATUS NO TÍTULO DO EXPANDER ---
+                expander_title = f"{status_icon} **ID:** {row['numero_identificacao']} | **Tipo:** {row['tipo_agente']} | **Status:** {row['status_atual']} | **Localização:** {row['status_instalacao']}"
                 
                 with st.expander(expander_title):
                     st.markdown(f"**Plano de Ação Sugerido:** {row['plano_de_acao']}")

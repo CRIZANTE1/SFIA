@@ -36,7 +36,7 @@ def assign_visual_properties(df):
     }
     default_color = [255, 75, 75, 160]
 
-    # --- CORREÇÃO APLICADA AQUI ---
+  
     # Função auxiliar para garantir que o tipo de retorno seja uma lista Python
     def get_color(agent_type):
         agent_type_str = str(agent_type).upper()
@@ -50,7 +50,7 @@ def assign_visual_properties(df):
     
     # 2. Definir Tamanho por Capacidade
     df['capacidade_num'] = pd.to_numeric(df['capacidade'].astype(str).str.extract(r'(\d+\.?\d*)')[0], errors='coerce').fillna(1)
-    df['size'] = 1 + (df['capacidade_num'] * 0.3)
+    df['size'] = 0.3 + (df['capacidade_num'] * 0.3)
     
     return df
 

@@ -2,21 +2,53 @@ import streamlit as st
 import pandas as pd
 import sys
 import os
+from config.page_config import set_page_config 
+
+# Chama a configuração da página no início
+set_page_config()
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from operations.history import load_sheet_data
 from auth.login_page import show_login_page, show_user_header, show_logout_button
 from auth.auth_utils import is_admin_user
 from operations.demo_page import show_demo_page
-from config.page_config import set_page_config 
 
-set_page_config()
+def format_dataframe_for_display(df):
+    """
+    Prepara o DataFrame para exibição: renomeia colunas, formata links e datas.
+    """
+    if df.empty:
+        return df
 
-
-def make_link_clickable(link):
-    """Transforma um link de texto em uma tag HTML clicável, se for uma URL válida."""
-    if isinstance(link, str) and link.startswith('http'):
-        return f'<a href="{link}" target="_blank">Ver Relatório</a>'
-    return "N/A"
+    # Garante que a coluna do link exista
+    if 'link_relatorio_pdf' not in df.columns:
+        df['link_relatorio_pdf'] = "N/A"
+    
+    # Cria a coluna de link clicável em formato Markdown
+    df['Relatório (PDF)'] = df['link_relatorio_pdf'].apply(
+        lambda link: f"[Ver Relatório]({link})" if isinstance(link, str) and link.startswith('http') else "N/A"
+    )
+    
+    # Formata a data de serviço para o formato brasileiro
+    df['data_servico'] = pd.to_datetime(df['data_servico']).dt.strftime('%d/%m/%Y')
+    
+    # Seleciona e renomeia as colunas na ordem desejada
+    display_columns = {
+        'data_servico': 'Data do Serviço',
+        'numero_identificacao': 'ID do Equipamento',
+        'numero_selo_inmetro': 'Selo INMETRO',
+        'tipo_servico': 'Tipo de Serviço',
+        'tipo_agente': 'Agente Extintor',
+        'capacidade': 'Capacidade',
+        'aprovado_inspecao': 'Status',
+        'plano_de_acao': 'Plano de Ação',
+        'Relatório (PDF)': 'Relatório (PDF)' # Usa o nome da nova coluna
+    }
+    
+    # Filtra apenas as colunas que existem no DataFrame original para evitar KeyErrors
+    cols_to_display = [col for col in display_columns.keys() if col in df.columns]
+    
+    return df[cols_to_display].rename(columns=display_columns)
 
 def show_history_page():
     st.title("Histórico Completo de Serviços")
@@ -33,45 +65,59 @@ def show_history_page():
         st.warning("Ainda não há registros de inspeção no histórico.")
         return
 
-    # Garante que a coluna do link exista para evitar erros, caso a planilha esteja desatualizada
-    if 'link_relatorio_pdf' not in df_inspections.columns:
-        df_inspections['link_relatorio_pdf'] = "N/A"
-    else:
-        # Preenche valores vazios com N/A antes de aplicar a função
-        df_inspections['link_relatorio_pdf'].fillna("N/A", inplace=True)
+    # Garante que a coluna de data seja do tipo datetime para poder filtrar
+    df_inspections['data_servico'] = pd.to_datetime(df_inspections['data_servico'], errors='coerce')
+    df_inspections.dropna(subset=['data_servico'], inplace=True)
+    
+    st.markdown("---")
+    
+    # --- FILTROS ---
+    st.subheader("Filtrar Histórico")
+    
+    # Pega os anos disponíveis a partir da coluna de data
+    available_years = sorted(df_inspections['data_servico'].dt.year.unique(), reverse=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Filtro por Ano
+        selected_year = st.selectbox(
+            "Filtrar por Ano do Serviço:",
+            options=["Todos os Anos"] + available_years
+        )
 
-    # Cria uma cópia para exibição com links clicáveis
-    df_display = df_inspections.copy()
-    df_display['link_relatorio_pdf'] = df_display['link_relatorio_pdf'].apply(make_link_clickable)
+    with col2:
+        # Filtro por ID do Equipamento (antigo "Selo INMETRO")
+        search_id = st.text_input("Buscar por ID do Equipamento:", placeholder="Ex: 12345")
+
+    # Aplica os filtros
+    filtered_df = df_inspections.copy()
+    if selected_year != "Todos os Anos":
+        filtered_df = filtered_df[filtered_df['data_servico'].dt.year == selected_year]
+    
+    if search_id:
+        filtered_df = filtered_df[filtered_df['numero_identificacao'].astype(str).str.contains(search_id, na=False)]
 
     st.markdown("---")
-    st.subheader("Buscar Registro por Selo INMETRO")
-    search_id = st.text_input("Digite o número do Selo INMETRO:", key="search_id_input", placeholder="Ex: 21769")
 
-    # DataFrame a ser exibido: filtrado ou completo
-    if search_id:
-        # Busca no DataFrame original (sem HTML) e depois aplica a formatação
-        result_df = df_inspections[df_inspections['numero_selo_inmetro'].astype(str) == search_id]
-        if not result_df.empty:
-            st.markdown(f"### Histórico para o Selo: {search_id}")
-            # Cria uma cópia do resultado para não alterar o original
-            display_result = result_df.copy()
-            display_result['link_relatorio_pdf'] = display_result['link_relatorio_pdf'].apply(make_link_clickable)
-            # Exibe o resultado da busca
-            st.markdown(display_result.to_html(escape=False, index=False), unsafe_allow_html=True)
-        else:
-            st.info(f"Nenhum registro encontrado para o selo: {search_id}")
-        
-        # Oculta a tabela completa quando uma busca é realizada para focar no resultado
-        st.markdown("---")
-        if st.button("Limpar Busca e Ver Histórico Completo"):
-            st.rerun()
-            
+    if filtered_df.empty:
+        st.warning("Nenhum registro encontrado com os filtros selecionados.")
     else:
-        st.subheader("Histórico Completo de Todos os Serviços")
-        # Usa to_html para renderizar a tabela completa com links clicáveis
-        st.markdown(df_display.to_html(escape=False, index=False), unsafe_allow_html=True)
-
+        st.subheader("Resultados")
+        # Prepara o DataFrame para exibição final
+        display_df = format_dataframe_for_display(filtered_df)
+        
+        st.dataframe(
+            display_df,
+            column_config={
+                "Relatório (PDF)": st.column_config.LinkColumn(
+                    "Relatório (PDF)",
+                    display_text="Ver Relatório"
+                )
+            },
+            hide_index=True,
+            use_container_width=True
+        )
 
 # --- Boilerplate de Autenticação ---
 if not show_login_page(): 

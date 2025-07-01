@@ -11,20 +11,38 @@ uploader = GoogleDriveUploader()
 pdf_qa = PDFQA()
 
 def generate_action_plan(record):
-    """Gera um plano de ação padronizado com base no status e nas observações."""
+    """
+    Gera um plano de ação padronizado e mais profissional com base no status e nas observações.
+    """
     aprovado = record.get('aprovado_inspecao')
     observacoes = record.get('observacoes_gerais', '').upper()
+
     if aprovado == "Sim":
-        return "Manter em monitoramento periódico."
+        return "Manter equipamento sob rotina de inspeção periódica."
+
     if aprovado == "Não":
-        if "PINTURA" in observacoes: return "Programar a repintura corretiva do extintor."
-        if "MANÔMETRO" in observacoes: return "Realizar a substituição imediata do manômetro."
-        if "GATILHO" in observacoes: return "Realizar a substituição do conjunto de gatilho."
-        if "MANGOTE" in observacoes or "MANGUEIRA" in observacoes: return "Realizar a substituição da mangueira/mangote."
-        if "RECARREGANDO" in observacoes or "RECARGA" in observacoes: return "Enviar o extintor para o processo de recarga."
-        if "LACRE" in observacoes: return "Substituir lacre e verificar motivo da violação."
-        return f"Analisar e corrigir a não conformidade: {record.get('observacoes_gerais', '')}"
-    return "N/A"
+        # Prioriza as não conformidades mais críticas primeiro
+        if "MANÔMETRO" in observacoes:
+            return "AÇÃO IMEDIATA: Recolher extintor para substituição do manômetro e verificação de carga."
+        if "DANO VISÍVEL" in observacoes:
+            return "AÇÃO IMEDIATA: Recolher extintor para avaliação estrutural e possível condenação."
+        if "OBSTRUÇÃO" in observacoes:
+            return "AÇÃO IMEDIATA: Desobstruir e testar o componente (bico/mangueira). Se persistir, recolher."
+        if "LACRE VIOLADO" in observacoes:
+            return "Verificar integridade da carga e substituir o lacre e o pino de segurança."
+        if "PINTURA" in observacoes:
+            return "Programar recolhimento do equipamento para tratamento de superfície e repintura."
+        if "SINALIZAÇÃO" in observacoes:
+            return "Corrigir a sinalização de piso e/ou parede conforme norma ABNT NBR 13434."
+        
+        # Se for uma não conformidade extraída pela IA que não está na lista
+        if observacoes:
+            return f"Analisar e corrigir a não conformidade reportada: {record.get('observacoes_gerais', '')}"
+            
+        # Plano de ação padrão se nenhuma observação específica for fornecida
+        return "Recolher equipamento para análise completa da não conformidade na oficina."
+    
+    return "N/A" # Caso o status não seja 'Sim' ou 'Não'
 
 def calculate_next_dates(service_date_str, service_level, extinguisher_type):
     """

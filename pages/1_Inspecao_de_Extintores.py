@@ -6,6 +6,7 @@ from datetime import date
 import sys
 import os
 
+# Adiciona o diretório raiz ao path para encontrar os outros módulos
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from operations.extinguisher_operations import (
     process_extinguisher_pdf, calculate_next_dates, save_inspection, generate_action_plan
@@ -16,6 +17,7 @@ from auth.login_page import show_login_page, show_user_header, show_logout_butto
 from auth.auth_utils import is_admin_user, get_user_display_name
 from operations.demo_page import show_demo_page
 
+# --- Funções para a Aba de Inspeção Rápida ---
 
 def decode_qr_from_image(image_file):
     """
@@ -30,8 +32,10 @@ def decode_qr_from_image(image_file):
 
         if not decoded_text:
             return None
+
         if '#' in decoded_text:
             parts = decoded_text.split('#')
+            # Ajuste o índice se o ID do equipamento não for o 4º item no seu QR code
             return parts[3].strip() if len(parts) >= 4 else None
         else:
             return decoded_text.strip()
@@ -50,40 +54,84 @@ def find_last_record(df, search_value, column_name):
         return records.sort_values(by='data_servico', ascending=False).iloc[0].to_dict()
     return records.iloc[0].to_dict()
 
+# --- Estrutura Principal da Página ---
 def main_inspection_page():
     st.title("Gerenciamento de Inspeções de Extintores")
     tab_batch, tab_qr = st.tabs(["🗂️ Registro em Lote por PDF", "📱 Inspeção Rápida por QR Code"])
 
+    # --- Aba 1: Registro em Lote por PDF ---
     with tab_batch:
         st.header("Processar Relatório de Inspeção/Manutenção")
-        st.session_state.setdefault('batch_step', 'start'); st.session_state.setdefault('processed_data', None); st.session_state.setdefault('uploaded_pdf_file', None); st.session_state.setdefault('service_level', "Inspeção")
+        
+        st.session_state.setdefault('batch_step', 'start')
+        st.session_state.setdefault('processed_data', None)
+        st.session_state.setdefault('uploaded_pdf_file', None)
+        st.session_state.setdefault('service_level', "Inspeção")
+
         st.subheader("1. Selecione o Serviço e o Relatório")
-        st.session_state.service_level = st.selectbox("Tipo de serviço realizado:", ["Inspeção", "Manutenção Nível 2", "Manutenção Nível 3"], index=["Inspeção", "Manutenção Nível 2", "Manutenção Nível 3"].index(st.session_state.service_level), key="batch_service_level")
+        
+        st.session_state.service_level = st.selectbox(
+            "Tipo de serviço realizado:", 
+            ["Inspeção", "Manutenção Nível 2", "Manutenção Nível 3"], 
+            index=["Inspeção", "Manutenção Nível 2", "Manutenção Nível 3"].index(st.session_state.service_level),
+            key="batch_service_level"
+        )
+        
         uploaded_pdf = st.file_uploader("Escolha o relatório PDF", type=["pdf"], key="batch_pdf_uploader")
-        if uploaded_pdf: st.session_state.uploaded_pdf_file = uploaded_pdf
+        if uploaded_pdf is not None:
+            st.session_state.uploaded_pdf_file = uploaded_pdf
+
         if st.session_state.uploaded_pdf_file and st.button("🔎 Analisar Dados do PDF com IA"):
             with st.spinner("Analisando o documento com IA..."):
                 extracted_list = process_extinguisher_pdf(st.session_state.uploaded_pdf_file)
                 if extracted_list:
                     processed_list = [ {**item, 'tipo_servico': st.session_state.service_level, 'link_relatorio_pdf': "Aguardando salvamento..." if st.session_state.service_level != "Inspeção" else "N/A", **calculate_next_dates(item.get('data_servico'), st.session_state.service_level, item.get('tipo_agente')), 'plano_de_acao': generate_action_plan(item)} for item in extracted_list if isinstance(item, dict) ]
-                    st.session_state.processed_data = processed_list; st.session_state.batch_step = 'confirm'; st.rerun()
-                else: st.error("Não foi possível extrair dados do arquivo.")
+                    st.session_state.processed_data = processed_list
+                    st.session_state.batch_step = 'confirm'
+                    st.rerun()
+                else:
+                    st.error("Não foi possível extrair dados do arquivo.")
+        
         if st.session_state.batch_step == 'confirm' and st.session_state.processed_data:
             st.subheader("2. Confira os Dados e Confirme o Registro")
             st.dataframe(pd.DataFrame(st.session_state.processed_data))
+
             if st.button("💾 Confirmar e Salvar no Sistema", type="primary"):
                 with st.spinner("Iniciando processo de salvamento..."):
                     pdf_link = None
                     if st.session_state.service_level in ["Manutenção Nível 2", "Manutenção Nível 3"]:
-                        st.session_state.uploaded_pdf_file.seek(0); uploader = GoogleDriveUploader(); pdf_name = f"Relatorio_{st.session_state.service_level.replace(' ', '_')}_{date.today().isoformat()}_{st.session_state.uploaded_pdf_file.name}"; pdf_link = uploader.upload_file(st.session_state.uploaded_pdf_file, novo_nome=pdf_name)
-                    progress_bar = st.progress(0, "Salvando registros..."); total_count = len(st.session_state.processed_data)
-                    for i, record in enumerate(st.session_state.processed_data):
-                        record['link_relatorio_pdf'] = pdf_link; save_inspection(record); progress_bar.progress((i + 1) / total_count, f"Salvando {i+1}/{total_count}...")
-                    st.success(f"{total_count} registros salvos!"); st.balloons(); st.session_state.batch_step = 'start'; st.session_state.processed_data = None; st.session_state.uploaded_pdf_file = None; st.rerun()
+                        st.write("Fazendo upload do relatório PDF para o Google Drive...")
+                        uploader = GoogleDriveUploader()
+                        try:
+                            st.session_state.uploaded_pdf_file.seek(0)
+                            pdf_name = f"Relatorio_{st.session_state.service_level.replace(' ', '_')}_{date.today().isoformat()}_{st.session_state.uploaded_pdf_file.name}"
+                            pdf_link = uploader.upload_file(st.session_state.uploaded_pdf_file, novo_nome=pdf_name)
+                            st.success("Relatório PDF salvo no Google Drive!")
+                        except Exception as e:
+                            st.error(f"Falha ao fazer upload do PDF: {e}")
+                            st.stop()
 
+                    progress_bar = st.progress(0, "Salvando registros...")
+                    total_count = len(st.session_state.processed_data)
+                    for i, record in enumerate(st.session_state.processed_data):
+                        record['link_relatorio_pdf'] = pdf_link
+                        save_inspection(record)
+                        progress_bar.progress((i + 1) / total_count, f"Salvando {i+1}/{total_count}...")
+                    
+                    st.success(f"{total_count} registros salvos!")
+                    st.balloons()
+
+                    st.session_state.batch_step = 'start'
+                    st.session_state.processed_data = None
+                    st.session_state.uploaded_pdf_file = None
+                    st.rerun()
+
+    # --- Aba 2: Inspeção Rápida por QR Code ---
     with tab_qr:
         st.header("Verificação Rápida de Equipamento")
-        st.session_state.setdefault('qr_step', 'start'); st.session_state.setdefault('qr_id', None); st.session_state.setdefault('last_record', None)
+        st.session_state.setdefault('qr_step', 'start')
+        st.session_state.setdefault('qr_id', None)
+        st.session_state.setdefault('last_record', None)
         
         if st.session_state.qr_step == 'start':
             st.info("Clique no botão abaixo para ativar a câmera e escanear o QR Code do equipamento.")
@@ -114,8 +162,18 @@ def main_inspection_page():
                     col1, col2, col3 = st.columns(3)
                     col1.metric("Último Selo INMETRO", last_record.get('numero_selo_inmetro', 'N/A'))
                     col2.metric("Tipo", last_record.get('tipo_agente', 'N/A'))
-                    next_insp_date = last_record.get('data_proxima_inspecao')
-                    col3.metric("Próxima Inspeção", pd.to_datetime(next_insp_date).strftime('%d/%m/%Y') if pd.notna(next_insp_date) else 'N/A')
+                    
+                    # Lógica para encontrar o próximo vencimento (inspeção, N2 ou N3)
+                    vencimentos = [
+                        pd.to_datetime(last_record.get('data_proxima_inspecao'), errors='coerce'),
+                        pd.to_datetime(last_record.get('data_proxima_manutencao_2_nivel'), errors='coerce'),
+                        pd.to_datetime(last_record.get('data_proxima_manutencao_3_nivel'), errors='coerce')
+                    ]
+                    valid_vencimentos = [d for d in vencimentos if pd.notna(d)]
+                    proximo_vencimento = min(valid_vencimentos) if valid_vencimentos else None
+                    vencimento_str = proximo_vencimento.strftime('%d/%m/%Y') if proximo_vencimento else 'N/A'
+                    
+                    col3.metric("Próximo Vencimento", vencimento_str)
 
                 st.subheader("Registrar Nova Inspeção (Nível 1)")
                 with st.form("quick_inspection_form"):

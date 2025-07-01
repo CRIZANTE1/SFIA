@@ -13,7 +13,7 @@ st.set_page_config(
 )
 
 def main():
-    pageconfig()
+  pageconfig()
     
     if not is_user_logged_in():
         show_login_page()

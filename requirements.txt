@@ -27,6 +27,8 @@ authlib
 # ========================
 opencv-python-headless # Já inclui o detector de QR Code
 qrcode[pil] # Adiciona qrcode e sua dependência Pillow
+segno
+Pillow
 
 # ========================
 # Visualização (Opcional, mas bom ter)

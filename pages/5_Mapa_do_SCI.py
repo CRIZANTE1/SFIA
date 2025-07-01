@@ -17,7 +17,6 @@ def get_latest_locations(df_full):
     if df_full.empty:
         return pd.DataFrame()
 
-  
     if 'latitude' not in df_full.columns or 'longitude' not in df_full.columns:
         st.warning("As colunas 'latitude' e 'longitude' não foram encontradas na planilha.")
         return pd.DataFrame()
@@ -99,9 +98,6 @@ show_user_header(); show_logout_button()
 if is_admin_user():
     st.sidebar.success("✅ Acesso completo")
     show_map_page()
-else:
-    st.sidebar.error("🔒 Acesso de demonstração")
-    show_demo_page()
 else:
     st.sidebar.error("🔒 Acesso de demonstração")
     show_demo_page()

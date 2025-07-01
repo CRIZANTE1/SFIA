@@ -93,34 +93,26 @@ def process_extinguisher_pdf(uploaded_file):
     return None
 
 def save_inspection(data):
-    """Salva os dados de UMA inspeção, agora incluindo o link do relatório PDF."""
-    selo_id = data.get('numero_selo_inmetro', 'N/A')
+    """Salva os dados de UMA inspeção, incluindo as coordenadas de geolocalização."""
+    id_equip = data.get('numero_identificacao', 'N/A')
     
-    # Ordem das colunas para corresponder à planilha
     data_row = [
-        data.get('numero_identificacao'),
-        data.get('numero_selo_inmetro'),
-        data.get('tipo_agente'),
-        data.get('capacidade'),
-        data.get('marca_fabricante'),
-        data.get('ano_fabricacao'),
-        data.get('tipo_servico'),
-        data.get('data_servico'),
-        data.get('inspetor_responsavel'),
-        data.get('empresa_executante'),
-        data.get('data_proxima_inspecao'),
-        data.get('data_proxima_manutencao_2_nivel'),
-        data.get('data_proxima_manutencao_3_nivel'),
-        data.get('data_ultimo_ensaio_hidrostatico'),
-        data.get('aprovado_inspecao'),
-        data.get('observacoes_gerais'),
-        data.get('plano_de_acao'),
-        data.get('link_relatorio_pdf', None)  # Adiciona o novo campo
+        data.get('numero_identificacao'), data.get('numero_selo_inmetro'),
+        data.get('tipo_agente'), data.get('capacidade'), data.get('marca_fabricante'),
+        data.get('ano_fabricacao'), data.get('tipo_servico'), data.get('data_servico'),
+        data.get('inspetor_responsavel'), data.get('empresa_executante'),
+        data.get('data_proxima_inspecao'), data.get('data_proxima_manutencao_2_nivel'),
+        data.get('data_proxima_manutencao_3_nivel'), data.get('data_ultimo_ensaio_hidrostatico'),
+        data.get('aprovado_inspecao'), data.get('observacoes_gerais'),
+        data.get('plano_de_acao'), data.get('link_relatorio_pdf', None),
+        data.get('latitude', None),  # Adiciona latitude
+        data.get('longitude', None) # Adiciona longitude
     ]
-
+    
+    uploader = GoogleDriveUploader() # Mova a instanciação para dentro da função se não for global
     try:
         uploader.append_data_to_sheet(EXTINGUISHER_SHEET_NAME, data_row)
         return True
     except Exception as e:
-        st.error(f"Erro ao salvar dados do selo {selo_id} no Google Sheets: {e}")
+        st.error(f"Erro ao salvar dados do equipamento {id_equip} no Google Sheets: {e}")
         return False

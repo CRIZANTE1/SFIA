@@ -1,5 +1,3 @@
-# pages/4_Utilitarios.py
-
 import streamlit as st
 import qrcode
 from PIL import Image

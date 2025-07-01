@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import numpy as np  
+import numpy as np
 import sys
 import os
 
@@ -31,9 +31,9 @@ def assign_color_by_agent(df):
     Adiciona uma coluna 'color' ao DataFrame com base no tipo de agente extintor.
     """
     color_map = {
-        'PQS ABC': [255, 255, 0, 160], 'PQS BC':  [0, 100, 255, 160],
-        'CO2':     [128, 128, 128, 160], 'Água':    [0, 255, 255, 160],
-        'Espuma':  [0, 200, 0, 160],
+        'ABC': [255, 255, 0, 160], 'BC': [0, 100, 255, 160],
+        'CO2': [128, 128, 128, 160], 'Água': [0, 255, 255, 160],
+        'Espuma': [0, 200, 0, 160],
     }
     default_color = [255, 75, 75, 160]
 
@@ -44,10 +44,9 @@ def assign_color_by_agent(df):
         df['tipo_agente'].str.contains("Água", case=False, na=False),
         df['tipo_agente'].str.contains("Espuma", case=False, na=False),
     ]
-    choices = [color_map['PQS ABC'], color_map['PQS BC'], color_map['CO2'], color_map['Água'], color_map['Espuma']]
+    choices = [color_map['ABC'], color_map['BC'], color_map['CO2'], color_map['Água'], color_map['Espuma']]
     
-    # --- CORREÇÃO APLICADA AQUI ---
-    # Troca pd.np.select por np.select
+  
     df['color'] = np.select(conditions, choices, default=default_color).tolist()
     
     return df

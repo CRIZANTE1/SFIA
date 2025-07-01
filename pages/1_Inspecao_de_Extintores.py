@@ -12,8 +12,7 @@ from operations.extinguisher_operations import (
     process_extinguisher_pdf, calculate_next_dates, save_inspection, generate_action_plan
 )
 from operations.history import load_sheet_data
-# Importa a classe uploader diretamente para usar na lógica de upload de PDF
-from gdrive.gdrive_upload import GoogleDriveUploader 
+from gdrive.gdrive_upload import GoogleDriveUploader
 from auth.login_page import show_login_page, show_user_header, show_logout_button
 from auth.auth_utils import is_admin_user, get_user_display_name
 from operations.demo_page import show_demo_page
@@ -40,23 +39,18 @@ def decode_qr_from_image(image_file):
         else:
             return decoded_text.strip()
     except Exception:
-        # Retorna None silenciosamente se houver qualquer erro no processamento
         return None
 
 def find_last_record(df, search_value, column_name):
     """Função genérica para encontrar o último registro com base em um valor e coluna."""
     if df.empty or column_name not in df.columns: return None
-    # Garante que a comparação seja feita entre strings
     records = df[df[column_name].astype(str) == str(search_value)]
     if records.empty: return None
-    # Garante que a coluna de data exista antes de tentar usar
     if 'data_servico' in records.columns:
-        # Usar .loc para evitar SettingWithCopyWarning
         records.loc[:, 'data_servico'] = pd.to_datetime(records['data_servico'], errors='coerce')
         records.dropna(subset=['data_servico'], inplace=True)
         if records.empty: return None
         return records.sort_values(by='data_servico', ascending=False).iloc[0].to_dict()
-    # Se não houver data, retorna o primeiro registro encontrado
     return records.iloc[0].to_dict()
 
 # --- Estrutura Principal da Página ---
@@ -68,65 +62,89 @@ def main_inspection_page():
     with tab_batch:
         st.header("Processar Relatório de Inspeção/Manutenção")
         
+        # Inicializa o estado da sessão para o fluxo em lote
+        if 'batch_step' not in st.session_state:
+            st.session_state.batch_step = 'start'
         if 'processed_data' not in st.session_state:
             st.session_state.processed_data = None
+        if 'uploaded_pdf_file' not in st.session_state:
+            st.session_state.uploaded_pdf_file = None
+        if 'service_level' not in st.session_state:
+            st.session_state.service_level = "Inspeção"
 
-        st.subheader("1. Selecione o Serviço e Faça o Upload")
-        service_level = st.selectbox("Tipo de serviço realizado:", ["Inspeção", "Manutenção Nível 2", "Manutenção Nível 3"], key="batch_service_level")
+        st.subheader("1. Selecione o Serviço e o Relatório")
+        
+        # Armazena o nível de serviço no estado da sessão
+        st.session_state.service_level = st.selectbox(
+            "Tipo de serviço realizado:", 
+            ["Inspeção", "Manutenção Nível 2", "Manutenção Nível 3"], 
+            index=["Inspeção", "Manutenção Nível 2", "Manutenção Nível 3"].index(st.session_state.service_level),
+            key="batch_service_level"
+        )
+        
         uploaded_pdf = st.file_uploader("Escolha o relatório PDF", type=["pdf"], key="batch_pdf_uploader")
+        if uploaded_pdf is not None:
+            # Armazena o objeto do arquivo no estado da sessão para uso posterior
+            st.session_state.uploaded_pdf_file = uploaded_pdf
 
-        # Mudamos a lógica para um único botão que faz tudo
-        if uploaded_pdf and st.button("🔎 Processar e Registrar", key="batch_process_button", type="primary"):
-            pdf_link = None
-            uploader = GoogleDriveUploader()
-
-            # Upload do PDF se for Nível 2 ou 3
-            if service_level in ["Manutenção Nível 2", "Manutenção Nível 3"]:
-                with st.spinner("Fazendo upload do relatório PDF para o Google Drive..."):
-                    try:
-                        pdf_name = f"Relatorio_{service_level.replace(' ', '_')}_{date.today().isoformat()}_{uploaded_pdf.name}"
-                        pdf_link = uploader.upload_file(uploaded_pdf, novo_nome=pdf_name)
-                        st.success("Relatório PDF salvo no Google Drive com sucesso!")
-                    except Exception as e:
-                        st.error(f"Falha ao fazer upload do PDF: {e}")
-            
-            # Extração e Processamento com IA
+        # Botão para processar os dados (sem salvar no Drive)
+        if st.session_state.uploaded_pdf_file and st.button("🔎 Analisar Dados do PDF com IA"):
             with st.spinner("Analisando o documento com IA..."):
-                extracted_list = process_extinguisher_pdf(uploaded_pdf)
+                extracted_list = process_extinguisher_pdf(st.session_state.uploaded_pdf_file)
                 if extracted_list:
                     processed_list = []
                     for item in extracted_list:
                         if isinstance(item, dict):
-                            item['tipo_servico'] = service_level
-                            item['link_relatorio_pdf'] = pdf_link  # Adiciona o link (ou None se não foi gerado)
-                            item.update(calculate_next_dates(item.get('data_servico'), service_level, item.get('tipo_agente')))
+                            item['tipo_servico'] = st.session_state.service_level
+                            item['link_relatorio_pdf'] = "Aguardando salvamento..." if st.session_state.service_level != "Inspeção" else "N/A"
+                            item.update(calculate_next_dates(item.get('data_servico'), st.session_state.service_level, item.get('tipo_agente')))
                             item['plano_de_acao'] = generate_action_plan(item)
                             processed_list.append(item)
                     
-                    # Salva os dados processados no estado da sessão para exibição
                     st.session_state.processed_data = processed_list
-                    st.success(f"{len(processed_list)} registros foram extraídos e processados.")
-                    
-                    # Exibe para confirmação do usuário
-                    st.subheader("2. Dados Extraídos e Prontos para Salvar")
-                    st.dataframe(pd.DataFrame(st.session_state.processed_data))
+                    st.session_state.batch_step = 'confirm'
+                    st.rerun()
                 else:
-                    st.error("Não foi possível extrair dados do arquivo. Verifique o documento ou tente novamente.")
-                    st.session_state.processed_data = None
+                    st.error("Não foi possível extrair dados do arquivo.")
+        
+        # ETAPA DE CONFIRMAÇÃO E SALVAMENTO
+        if st.session_state.batch_step == 'confirm' and st.session_state.processed_data:
+            st.subheader("2. Confira os Dados e Confirme o Registro")
+            st.info("Verifique a tabela abaixo. Ao clicar em 'Confirmar e Salvar', o relatório PDF (se aplicável) será salvo no Google Drive e os registros serão adicionados à planilha.")
+            
+            st.dataframe(pd.DataFrame(st.session_state.processed_data))
 
-        # Botão de confirmação para salvar os dados exibidos
-        if st.session_state.get('processed_data'):
-            if st.button("💾 Confirmar e Salvar no Sistema", type="secondary"):
-                with st.spinner("Salvando registros no sistema..."):
+            if st.button("💾 Confirmar e Salvar no Sistema", type="primary"):
+                with st.spinner("Iniciando processo de salvamento..."):
+                    pdf_link = None
+                    if st.session_state.service_level in ["Manutenção Nível 2", "Manutenção Nível 3"]:
+                        st.write("Fazendo upload do relatório PDF para o Google Drive...")
+                        uploader = GoogleDriveUploader()
+                        try:
+                            # Garante que o buffer do arquivo seja lido desde o início
+                            st.session_state.uploaded_pdf_file.seek(0)
+                            pdf_name = f"Relatorio_{st.session_state.service_level.replace(' ', '_')}_{date.today().isoformat()}_{st.session_state.uploaded_pdf_file.name}"
+                            pdf_link = uploader.upload_file(st.session_state.uploaded_pdf_file, novo_nome=pdf_name)
+                            st.success("Relatório PDF salvo no Google Drive!")
+                        except Exception as e:
+                            st.error(f"Falha ao fazer upload do PDF: {e}")
+                            st.stop()
+
+                    progress_bar = st.progress(0, "Salvando registros na planilha...")
                     total_count = len(st.session_state.processed_data)
-                    for record in st.session_state.processed_data:
+                    for i, record in enumerate(st.session_state.processed_data):
+                        record['link_relatorio_pdf'] = pdf_link
                         save_inspection(record)
+                        progress_bar.progress((i + 1) / total_count, f"Salvando {i+1}/{total_count}...")
+                    
                     st.success(f"{total_count} registros salvos com sucesso!")
                     st.balloons()
-                    # Limpa o estado após salvar
-                    st.session_state.processed_data = None
-                    st.rerun()
 
+                    # Limpa o estado para um novo ciclo
+                    st.session_state.batch_step = 'start'
+                    st.session_state.processed_data = None
+                    st.session_state.uploaded_pdf_file = None
+                    st.rerun()
 
     # --- Aba 2: Inspeção Rápida por QR Code ---
     with tab_qr:
@@ -180,38 +198,29 @@ def main_inspection_page():
                             with st.spinner("Salvando..."):
                                 new_record = last_record.copy()
                                 new_record.update({
-                                    'tipo_servico': "Inspeção",
-                                    'data_servico': date.today().isoformat(),
+                                    'tipo_servico': "Inspeção", 'data_servico': date.today().isoformat(),
                                     'inspetor_responsavel': get_user_display_name(),
                                     'aprovado_inspecao': "Sim" if status == "Conforme" else "Não",
                                     'observacoes_gerais': "Inspeção de rotina OK." if status == "Conforme" else ", ".join(issues),
-                                    'link_relatorio_pdf': None # Inspeção rápida não gera PDF
+                                    'link_relatorio_pdf': None
                                 })
                                 new_record.update(calculate_next_dates(new_record['data_servico'], new_record['tipo_servico'], new_record['tipo_agente']))
                                 new_record['plano_de_acao'] = generate_action_plan(new_record)
                                 
                                 if save_inspection(new_record):
                                     st.success(f"Inspeção para o selo {st.session_state.qr_id} registrada!")
-                                    st.balloons()
-                                    st.session_state.qr_step = 'start'
-                                    st.rerun()
+                                    st.balloons(); st.session_state.qr_step = 'start'; st.rerun()
                     with col_form2:
                         if st.form_submit_button("❌ Cancelar", use_container_width=True):
-                            st.session_state.qr_step = 'start'
-                            st.rerun()
+                            st.session_state.qr_step = 'start'; st.rerun()
             else:
-                st.error(f"Nenhum registro encontrado para o Selo INMETRO '{st.session_state.qr_id}'. Este extintor precisa ser cadastrado primeiro através do registro em lote.")
+                st.error(f"Nenhum registro encontrado para o Selo INMETRO '{st.session_state.qr_id}'.")
                 if st.button("Tentar Novamente"):
-                    st.session_state.qr_step = 'start'
-                    st.rerun()
+                    st.session_state.qr_step = 'start'; st.rerun()
 
 # --- Boilerplate de Autenticação ---
-if not show_login_page(): 
-    st.stop()
-
-show_user_header()
-show_logout_button()
-
+if not show_login_page(): st.stop()
+show_user_header(); show_logout_button()
 if is_admin_user():
     st.sidebar.success("✅ Acesso completo")
     main_inspection_page()

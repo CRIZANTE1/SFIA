@@ -5,7 +5,7 @@ from auth.login_page import show_login_page, show_user_header, show_logout_butto
 from auth.auth_utils import is_user_logged_in, is_admin_user
 from operations.demo_page import show_demo_page
 
-# Configuração da página no topo para ser aplicada globalmente
+
 st.set_page_config(
     page_title="SFIA - Inspeção de Equipamentos de Emergência",
     page_icon="🔧",
@@ -13,20 +13,17 @@ st.set_page_config(
 )
 
 def main():
-    # --- Verificação de Login ANTES de qualquer outra coisa ---
-    # A função show_login_page já exibe a tela de login se necessário.
-    # Ela retorna False se o usuário não estiver logado.
+   
     if not is_user_logged_in():
         show_login_page()
-        # Para a execução aqui, garantindo que nada mais seja renderizado
-        # para um usuário não logado, incluindo o conteúdo da sidebar.
+       
         return
 
   
     show_user_header()
-    show_logout_button() # Esta função já coloca o botão na sidebar.
+    show_logout_button() 
 
-    # Lógica de permissão para o conteúdo principal
+  
     if is_admin_user():
         st.sidebar.success("✅ Acesso completo")
         
@@ -49,6 +46,5 @@ def main():
 
 if __name__ == "__main__":
     main()
-    # Os rodapés podem ficar fora da função main
     st.caption('Copyright 2024, Cristian Ferreira Carlos, Todos os direitos reservados.')
     st.caption('https://www.linkedin.com/in/cristian-ferreira-carlos-256b19161/')

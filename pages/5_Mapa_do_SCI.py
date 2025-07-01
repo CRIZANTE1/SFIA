@@ -87,7 +87,7 @@ def show_map_page():
         
         # 2. Define o tamanho dos pontos. Você pode ajustar este valor.
         # Valores menores = pontos menores.
-        tamanho_do_ponto = 20
+        tamanho_do_ponto = 5
 
         # 3. Exibe o mapa com o tamanho personalizado
         st.map(map_data, zoom=15, size=tamanho_do_ponto)

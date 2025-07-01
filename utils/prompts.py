@@ -10,8 +10,8 @@ def get_extinguisher_inspection_prompt():
 
     **Para cada extintor (cada linha da tabela), extraia os seguintes campos:**
 
-    *   `numero_selo_inmetro`: Extraia da coluna "N° SELO INMETRO". Este é o campo chave.
     *   `numero_identificacao`: Extraia da coluna "N° DO CILINDRO / RECIPIENTE" ou "Extin.".
+    *   `numero_selo_inmetro`: Extraia da coluna "N° SELO INMETRO". Este é o campo chave.
     *   `tipo_agente`: Extraia da coluna "Tipo" ou "TIPO".
     *   `capacidade`: Extraia da coluna "CAPAC. CARGA" ou do tipo (ex: "PQS 4,5KG").
     *   `marca_fabricante`: Extraia da coluna "FABRIC. OU MARCA".

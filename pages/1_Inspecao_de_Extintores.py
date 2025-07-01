@@ -5,6 +5,8 @@ import numpy as np
 from datetime import date
 import sys
 import os
+
+# Importa o novo componente de geolocalização
 from streamlit_geolocation import streamlit_geolocation
 
 # Adiciona o diretório raiz ao path para encontrar os outros módulos

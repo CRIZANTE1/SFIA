@@ -12,7 +12,7 @@ from operations.demo_page import show_demo_page
 def get_latest_locations(df_full):
     """
     Processa o histórico completo para obter a localização mais recente de cada equipamento.
-    Retorna um DataFrame com id, lat, lon e informações adicionais para o tooltip.
+    Agora lida com vírgulas como separadores decimais.
     """
     if df_full.empty:
         return pd.DataFrame()
@@ -20,22 +20,25 @@ def get_latest_locations(df_full):
     if 'latitude' not in df_full.columns or 'longitude' not in df_full.columns:
         st.warning("As colunas 'latitude' e 'longitude' não foram encontradas na planilha.")
         return pd.DataFrame()
-        
-    # 2. Força a conversão para tipo numérico. 'coerce' transforma erros em NaT/NaN (nulo)
+    
+ 
+    df_full['latitude'] = df_full['latitude'].astype(str)
+    df_full['longitude'] = df_full['longitude'].astype(str)
+
+    df_full['latitude'] = df_full['latitude'].str.replace(',', '.', regex=False)
+    df_full['longitude'] = df_full['longitude'].str.replace(',', '.', regex=False)
+    
     df_full['latitude'] = pd.to_numeric(df_full['latitude'], errors='coerce')
     df_full['longitude'] = pd.to_numeric(df_full['longitude'], errors='coerce')
     
-    # 3. Remove linhas onde a localização é nula APÓS a conversão
     df_full.dropna(subset=['latitude', 'longitude'], inplace=True)
 
     if df_full.empty:
-        # Se ficou vazio após a limpeza, significa que não havia dados numéricos válidos.
         return pd.DataFrame()
         
     df_full['data_servico'] = pd.to_datetime(df_full['data_servico'], errors='coerce')
     df_full.dropna(subset=['data_servico'], inplace=True)
 
-    # Pega o registro mais recente (última localização conhecida) para cada equipamento
     latest_locations_df = df_full.sort_values('data_servico').drop_duplicates(
         subset='numero_identificacao', 
         keep='last'

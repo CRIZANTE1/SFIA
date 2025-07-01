@@ -3,6 +3,7 @@ import pandas as pd
 import sys
 import os
 
+# Adiciona o diretório raiz ao path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from operations.history import load_sheet_data
 from auth.login_page import show_login_page, show_user_header, show_logout_button
@@ -10,48 +11,55 @@ from auth.auth_utils import is_admin_user
 from operations.demo_page import show_demo_page
 
 def get_latest_locations(df_full):
-    # (Esta função não muda)
-    if df_full.empty: return pd.DataFrame()
-    if 'latitude' not in df_full.columns or 'longitude' not in df_full.columns: return pd.DataFrame()
-    df_full['latitude'] = pd.to_numeric(df_full['latitude'].astype(str).str.replace(',', '.'), errors='coerce')
-    df_full['longitude'] = pd.to_numeric(df_full['longitude'].astype(str).str.replace(',', '.'), errors='coerce')
+    """
+    Processa o histórico completo para obter a localização mais recente de cada equipamento.
+    Lida com vírgulas como separadores decimais.
+    """
+    if df_full.empty:
+        return pd.DataFrame()
+
+    if 'latitude' not in df_full.columns or 'longitude' not in df_full.columns:
+        st.warning("As colunas 'latitude' e 'longitude' não foram encontradas na planilha.")
+        return pd.DataFrame()
+    
+    # Garante que as colunas sejam do tipo string para poder usar .str
+    df_full['latitude'] = df_full['latitude'].astype(str)
+    df_full['longitude'] = df_full['longitude'].astype(str)
+
+    # Substitui a vírgula decimal por um ponto
+    df_full['latitude'] = df_full['latitude'].str.replace(',', '.', regex=False)
+    df_full['longitude'] = df_full['longitude'].str.replace(',', '.', regex=False)
+    
+    # Força a conversão para tipo numérico
+    df_full['latitude'] = pd.to_numeric(df_full['latitude'], errors='coerce')
+    df_full['longitude'] = pd.to_numeric(df_full['longitude'], errors='coerce')
+    
+    # Remove linhas onde a localização é nula
     df_full.dropna(subset=['latitude', 'longitude'], inplace=True)
-    if df_full.empty: return pd.DataFrame()
+
+    if df_full.empty:
+        return pd.DataFrame()
+        
     df_full['data_servico'] = pd.to_datetime(df_full['data_servico'], errors='coerce')
     df_full.dropna(subset=['data_servico'], inplace=True)
-    return df_full.sort_values('data_servico').drop_duplicates(subset='numero_identificacao', keep='last')
 
-def assign_visual_properties(df):
-    """
-    Cria colunas de 'size' e 'color' com base nos dados do equipamento.
-    """
-    # 1. Definir Cores por Tipo de Agente
-    color_map = {
-        'ABC': [255, 255, 0, 180],  # Amarelo translúcido
-        'BC':  [0, 0, 255, 180],    # Azul translúcido
-        'CO2': [128, 128, 128, 180],# Cinza translúcido
-        'ÁGUA': [0, 100, 255, 180], # Azul claro translúcido
-        'ESPUMA': [0, 128, 0, 180], # Verde escuro translúcido
-    }
-    default_color = [255, 0, 0, 180] # Vermelho padrão para tipos não mapeados
-
-    # Aplica a cor com base no tipo_agente
-    df['color'] = df['tipo_agente'].apply(lambda x: color_map.get(x, default_color))
+    # Pega o registro mais recente (última localização conhecida)
+    latest_locations_df = df_full.sort_values('data_servico').drop_duplicates(
+        subset='numero_identificacao', 
+        keep='last'
+    )
     
-    # 2. Definir Tamanho por Capacidade
-    # Extrai o número da capacidade (ex: '6 kg' -> 6)
-    df['capacidade_num'] = df['capacidade'].str.extract('(\d+\.?\d*)').astype(float).fillna(1)
-    
-    # Mapeia a capacidade para um tamanho no mapa (ex: capacidade * 10 = tamanho em metros)
-    df['size'] = df['capacidade_num'] * 0.2
-    
-    return df
+    return latest_locations_df
 
 def show_map_page():
     st.title("🗺️ Mapa do Sistema de Combate a Incêndio (SCI)")
     st.info("Visualize a localização geográfica dos equipamentos de emergência.")
 
-    equip_type = st.selectbox("Selecione o tipo de equipamento:", ["Extintores", "Mangueiras (em breve)"])
+    equip_type = st.selectbox(
+        "Selecione o tipo de equipamento para visualizar:",
+        ["Extintores", "Mangueiras (em breve)"]
+    )
+    
     st.markdown("---")
 
     if equip_type == "Extintores":
@@ -59,44 +67,37 @@ def show_map_page():
         df_history = load_sheet_data("extintores")
         
         if df_history.empty:
-            st.warning("Não há dados de extintores para exibir no mapa."); return
+            st.warning("Não há dados de extintores para exibir no mapa.")
+            return
 
         with st.spinner("Processando localizações..."):
             locations_df = get_latest_locations(df_history)
 
         if locations_df.empty:
-            st.warning("Nenhum extintor com dados de geolocalização válidos."); return
+            st.warning("Nenhum extintor com dados de geolocalização válidos foi encontrado.")
+            return
 
-        # --- MELHORIA APLICADA AQUI ---
-        # Adiciona as propriedades visuais ao DataFrame
-        locations_df = assign_visual_properties(locations_df)
-        
         st.success(f"Exibindo a localização de **{len(locations_df)}** extintores.")
+                
+        # 1. Prepara os dados para o st.map
+        map_data = locations_df[['latitude', 'longitude']].copy()
+        map_data.rename(columns={'latitude': 'lat', 'longitude': 'lon'}, inplace=True)
         
-        # Prepara os dados para o st.map
-        map_data = locations_df.rename(columns={'latitude': 'lat', 'longitude': 'lon'})
-        
-        # Exibe o mapa com tamanho e cor dinâmicos
-        st.map(map_data, zoom=16, size='size', color='color')
+        # 2. Define o tamanho dos pontos. Você pode ajustar este valor.
+        # Valores menores = pontos menores.
+        tamanho_do_ponto = 0.3
 
-        with st.expander("Ver detalhes e legenda"):
-            # Legenda de cores
-            st.markdown("**Legenda de Cores:**")
-            st.markdown("""
-                - <span style="color:yellow; font-weight:bold;">●</span> Pó Químico ABC
-                - <span style="color:blue; font-weight:bold;">●</span> Pó Químico BC
-                - <span style="color:grey; font-weight:bold;">●</span> Dióxido de Carbono (CO2)
-                - <span style="color:cyan; font-weight:bold;">●</span> Água
-                - <span style="color:green; font-weight:bold;">●</span> Espuma
-            """, unsafe_allow_html=True)
-            
+        # 3. Exibe o mapa com o tamanho personalizado
+        st.map(map_data, zoom=16, size=tamanho_do_ponto, color="#0044ff")
+
+        with st.expander("Ver detalhes dos equipamentos no mapa"):
             st.dataframe(
                 locations_df[[
                     'numero_identificacao', 'numero_selo_inmetro', 'tipo_agente', 
-                    'capacidade', 'latitude', 'longitude'
+                    'latitude', 'longitude'
                 ]].rename(columns={
                     'numero_identificacao': 'ID do Equipamento', 'numero_selo_inmetro': 'Último Selo',
-                    'tipo_agente': 'Tipo', 'capacidade': 'Capacidade'
+                    'tipo_agente': 'Tipo'
                 }),
                 hide_index=True, use_container_width=True
             )
@@ -106,11 +107,14 @@ def show_map_page():
         st.info("Esta funcionalidade está em desenvolvimento.")
 
 # --- Boilerplate de Autenticação ---
-if not show_login_page(): st.stop()
-show_user_header(); show_logout_button()
+if not show_login_page():
+    st.stop()
+show_user_header()
+show_logout_button()
 if is_admin_user():
     st.sidebar.success("✅ Acesso completo")
     show_map_page()
 else:
     st.sidebar.error("🔒 Acesso de demonstração")
     show_demo_page()
+

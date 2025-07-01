@@ -14,11 +14,8 @@ from operations.demo_page import show_demo_page
 def get_consolidated_status_df(df_full):
     if df_full.empty: return pd.DataFrame()
     consolidated_data = []
-    
-    # Converte para datetime para cálculos, mas mantém como objeto date no final se não tiver hora.
     df_full['data_servico'] = pd.to_datetime(df_full['data_servico'], errors='coerce')
     df_full.dropna(subset=['data_servico'], inplace=True)
-    
     unique_selos = df_full['numero_selo_inmetro'].unique()
 
     for selo_id in unique_selos:
@@ -40,10 +37,7 @@ def get_consolidated_status_df(df_full):
         
         proximo_vencimento_real = min(vencimentos)
         
-        # --- CORREÇÃO APLICADA AQUI ---
-        # Converte a data de hoje para um Timestamp do Pandas para a comparação
         today_ts = pd.Timestamp(date.today())
-        
         status_atual, cor = "OK", "green"
 
         if proximo_vencimento_real < today_ts:
@@ -63,8 +57,6 @@ def get_consolidated_status_df(df_full):
             'cor': cor
         })
     return pd.DataFrame(consolidated_data)
-
-# (O resto do arquivo permanece o mesmo)
 
 def style_status_cell(val, color):
     return f'background-color: {color}; color: white; border-radius: 5px; padding: 5px; text-align: center;'
@@ -105,21 +97,30 @@ def show_dashboard_page():
         )
         filtered_df = dashboard_df[dashboard_df['status_atual'].isin(status_filter)]
         
-        color_map = pd.Series(filtered_df.cor.values, index=filtered_df.status_atual).to_dict()
+        # --- CORREÇÃO FINAL E ROBUSTA APLICADA AQUI ---
         
+        # 1. Renomeia as colunas ANTES de estilizar
         display_df = filtered_df.rename(columns={
             'numero_selo_inmetro': 'Selo INMETRO', 'numero_identificacao': 'ID do Cilindro', 'tipo_agente': 'Tipo',
             'status_atual': 'Status', 'proximo_vencimento': 'Próximo Vencimento',
             'plano_de_acao': 'Plano de Ação Sugerido'
         })
         
-        styler = display_df.style.applymap(
-            lambda val: style_status_cell(val, color_map.get(val, 'grey')),
+        # 2. Define a função de estilo que usa o DataFrame original (com a coluna 'cor')
+        def apply_styling(row, color_col):
+            color = color_col[row.name] # Pega a cor correspondente pelo índice da linha
+            return [f'background-color: {color}; color: white; border-radius: 5px; text-align: center;' if col == 'Status' else '' for col in row.index]
+
+        # 3. Aplica o estilo e esconde a coluna 'cor' no mesmo passo
+        styler = display_df.style.apply(
+            apply_styling,
+            color_col=filtered_df['cor'], # Passa a coluna de cores como argumento
+            axis=1,
             subset=['Status']
-        )
+        ).hide(subset=['cor'], axis=1)
         
         st.dataframe(
-            styler.hide(subset=['cor'], axis=1),
+            styler,
             use_container_width=True,
             hide_index=True
         )

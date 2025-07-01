@@ -30,8 +30,8 @@ def get_extinguisher_inspection_prompt():
     {
       "extintores": [
         {
-          "numero_selo_inmetro": "20899",
-          "numero_identificacao": "15",
+          "numero_selo_inmetro": "306472073",
+          "numero_identificacao": "16500",
           "tipo_agente": "CO2",
           "capacidade": "6 kg",
           "marca_fabricante": "KB",

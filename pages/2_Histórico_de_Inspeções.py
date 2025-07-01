@@ -7,6 +7,10 @@ from operations.history import load_sheet_data
 from auth.login_page import show_login_page, show_user_header, show_logout_button
 from auth.auth_utils import is_admin_user
 from operations.demo_page import show_demo_page
+from config.page_config import set_page_config 
+
+set_page_config()
+
 
 def make_link_clickable(link):
     """Transforma um link de texto em uma tag HTML clicável, se for uma URL válida."""

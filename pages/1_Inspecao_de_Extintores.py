@@ -7,7 +7,7 @@ import sys
 import os
 
 # Importa o novo componente de geolocalização
-from streamlit_geolocation import streamlit_geolocation
+from streamlit_js_eval import get_geolocation
 
 # Adiciona o diretório raiz ao path para encontrar os outros módulos
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -40,13 +40,11 @@ def decode_qr_from_image(image_file):
         if '#' in decoded_text:
             parts = decoded_text.split('#')
             if len(parts) >= 4:
-                # Ex: '2#1430#EXT#21769#133#1'
-                id_equipamento = parts[1].strip()  # Posição 2 (índice 1)
-                selo_inmetro = parts[3].strip()    # Posição 4 (índice 3)
+                id_equipamento = parts[1].strip()
+                selo_inmetro = parts[3].strip()
                 return id_equipamento, selo_inmetro
             return None, None
         else:
-            # Se for um QR simples, ele é o ID do equipamento. Não há novo selo.
             return decoded_text, None
     except Exception:
         return None, None
@@ -67,10 +65,10 @@ def main_inspection_page():
     tab_batch, tab_qr = st.tabs(["🗂️ Registro em Lote por PDF", "📱 Inspeção Rápida por QR Code"])
     
     with tab_batch:
-        # (código da aba de lote, sem alterações)
         st.header("Processar Relatório de Inspeção/Manutenção")
         st.session_state.setdefault('batch_step', 'start'); st.session_state.setdefault('processed_data', None); st.session_state.setdefault('uploaded_pdf_file', None); st.session_state.setdefault('service_level', "Inspeção")
-        st.subheader("1. Selecione o Serviço e o Relatório"); st.session_state.service_level = st.selectbox("Tipo de serviço:", ["Inspeção", "Manutenção Nível 2", "Manutenção Nível 3"], index=["Inspeção", "Manutenção Nível 2", "Manutenção Nível 3"].index(st.session_state.service_level), key="batch_service_level")
+        st.subheader("1. Selecione o Serviço e o Relatório")
+        st.session_state.service_level = st.selectbox("Tipo de serviço:", ["Inspeção", "Manutenção Nível 2", "Manutenção Nível 3"], index=["Inspeção", "Manutenção Nível 2", "Manutenção Nível 3"].index(st.session_state.service_level), key="batch_service_level")
         uploaded_pdf = st.file_uploader("Escolha o relatório PDF", type=["pdf"], key="batch_pdf_uploader")
         if uploaded_pdf: st.session_state.uploaded_pdf_file = uploaded_pdf
         if st.session_state.uploaded_pdf_file and st.button("🔎 Analisar Dados do PDF com IA"):
@@ -97,12 +95,10 @@ def main_inspection_page():
         st.session_state.setdefault('qr_step', 'start'); st.session_state.setdefault('qr_id', None)
         st.session_state.setdefault('qr_selo', None); st.session_state.setdefault('last_record', None)
         
-        # Pega a localização no início da aba. O navegador do usuário pedirá permissão.
-        location = streamlit_geolocation(key="user_location")
+        location = get_geolocation(timeout=20000)
 
         if st.session_state.qr_step == 'start':
-            if st.button("📷 Iniciar Leitura de QR Code", type="primary"):
-                st.session_state.qr_step = 'scan'; st.rerun()
+            if st.button("📷 Iniciar Leitura", type="primary"): st.session_state.qr_step = 'scan'; st.rerun()
         
         if st.session_state.qr_step == 'scan':
             qr_image = st.camera_input("Aponte para o QR Code do Equipamento", key="qr_camera")
@@ -110,13 +106,11 @@ def main_inspection_page():
                 with st.spinner("Processando..."):
                     decoded_id, decoded_selo = decode_qr_from_image(qr_image)
                     if decoded_id:
-                        st.session_state.qr_id = decoded_id
-                        st.session_state.qr_selo = decoded_selo
+                        st.session_state.qr_id = decoded_id; st.session_state.qr_selo = decoded_selo
                         st.success(f"QR lido! ID Equip: **{decoded_id}** | Selo Atual: **{decoded_selo or 'N/A'}**")
                         st.session_state.last_record = find_last_record(load_sheet_data("extintores"), decoded_id, 'numero_identificacao')
                         st.session_state.qr_step = 'inspect'; st.rerun()
-                    else:
-                        st.warning("QR Code não detectado.")
+                    else: st.warning("QR Code não detectado.")
         
         if st.session_state.qr_step == 'inspect':
             if st.session_state.last_record:
@@ -134,16 +128,17 @@ def main_inspection_page():
                 with st.form("quick_inspection_form"):
                     st.subheader("Registrar Nova Inspeção (Nível 1)")
                     
-                    if location and location.get('latitude'):
-                        st.info(f"📍 Localização Capturada: Lat: {location['latitude']:.5f}, Lon: {location['longitude']:.5f}")
+                    if location and location.get('coords'):
+                        lat, lon = location['coords']['latitude'], location['coords']['longitude']
+                        st.info(f"📍 Localização Capturada: Lat: {lat:.5f}, Lon: {lon:.5f}")
                     else:
-                        st.warning("⚠️ Não foi possível obter a localização. Por favor, permita o acesso no seu navegador.")
+                        st.warning("⚠️ Não foi possível obter a localização. Verifique as permissões do navegador e recarregue a página.")
                     
                     status = st.radio("Status:", ["Conforme", "Não Conforme"], horizontal=True)
                     issues = st.multiselect("Não Conformidades:", ["Lacre Violado", "Manômetro Fora de Faixa", "Dano Visível"]) if status == "Não Conforme" else []
                     
                     if st.form_submit_button("✅ Registrar Inspeção", type="primary"):
-                        if not location or not location.get('latitude'):
+                        if not location or not location.get('coords'):
                             st.error("Erro: A geolocalização é necessária para registrar a inspeção.")
                         else:
                             with st.spinner("Salvando..."):
@@ -158,14 +153,14 @@ def main_inspection_page():
                                     'observacoes_gerais': observacoes,
                                     'plano_de_acao': generate_action_plan(temp_plan_record),
                                     'link_relatorio_pdf': None,
-                                    'latitude': location['latitude'],
-                                    'longitude': location['longitude']
+                                    'latitude': location['coords']['latitude'],
+                                    'longitude': location['coords']['longitude']
                                 })
                                 new_record.update(calculate_next_dates(new_record['data_servico'], 'Inspeção', new_record['tipo_agente']))
                                 
                                 if save_inspection(new_record):
-                                    st.success(f"Inspeção para o ID {st.session_state.qr_id} registrada com sucesso!")
-                                    st.balloons(); st.session_state.qr_step = 'start'; st.rerun()
+                                    st.success(f"Inspeção para o ID {st.session_state.qr_id} registrada com sucesso!"); st.balloons()
+                                    st.session_state.qr_step = 'start'; st.rerun()
             else:
                 st.error(f"Nenhum registro encontrado para o ID de Equipamento '{st.session_state.qr_id}'.")
                 if st.button("Tentar Novamente"): st.session_state.qr_step = 'start'; st.rerun()

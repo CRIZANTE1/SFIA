@@ -1,11 +1,10 @@
 import streamlit as st
 import pandas as pd
 from datetime import date
-from dateutil.relativedelta import relativedelta  # <--- LINHA DE IMPORTAÇÃO CORRIGIDA
+from dateutil.relativedelta import relativedelta
 import sys
 import os
 
-# Adiciona o diretório raiz ao path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from operations.history import load_sheet_data
 from auth.login_page import show_login_page, show_user_header, show_logout_button
@@ -13,18 +12,10 @@ from auth.auth_utils import is_admin_user
 from operations.demo_page import show_demo_page
 
 def get_consolidated_status_df(df_full):
-    """
-    Processa o histórico completo e retorna um DataFrame com o status real e consolidado
-    de cada extintor, considerando todos os seus ciclos de vida.
-    """
-    if df_full.empty:
-        return pd.DataFrame()
-
+    if df_full.empty: return pd.DataFrame()
     consolidated_data = []
-    
     df_full['data_servico'] = pd.to_datetime(df_full['data_servico'], errors='coerce').dt.date
     df_full.dropna(subset=['data_servico'], inplace=True)
-    
     unique_selos = df_full['numero_selo_inmetro'].unique()
 
     for selo_id in unique_selos:
@@ -49,7 +40,7 @@ def get_consolidated_status_df(df_full):
         today = date.today()
         status_atual, cor = "OK", "green"
 
-        if proximo_vencimento_real < today:
+        if proximo_vencimento_real < pd.Timestamp(today):
             status_atual = "VENCIDO"
             cor = "red"
         elif latest_record.get('aprovado_inspecao') == 'Não':
@@ -106,26 +97,32 @@ def show_dashboard_page():
         )
         filtered_df = dashboard_df[dashboard_df['status_atual'].isin(status_filter)]
         
+        # Cria um mapa de cores a partir do DataFrame filtrado
+        color_map = pd.Series(filtered_df.cor.values, index=filtered_df.status_atual).to_dict()
+        
         display_df = filtered_df.rename(columns={
             'numero_selo_inmetro': 'Selo INMETRO', 'numero_identificacao': 'ID do Cilindro', 'tipo_agente': 'Tipo',
             'status_atual': 'Status', 'proximo_vencimento': 'Próximo Vencimento',
             'plano_de_acao': 'Plano de Ação Sugerido'
         })
         
-        def apply_row_styling(row):
-            color = row['cor']
-            return [style_status_cell(row['Status'], color) if col == 'Status' else '' for col in row.index]
-
-        styler = display_df.style.apply(apply_row_styling, axis=1).hide(subset=['cor'], axis=1)
-        st.dataframe(styler, use_container_width=True, hide_index=True)
+        styler = display_df.style.applymap(
+            lambda val: style_status_cell(val, color_map.get(val, 'grey')),
+            subset=['Status']
+        )
+        
+        st.dataframe(
+            styler.hide(subset=['cor'], axis=1), # Esconde a coluna 'cor' da visualização
+            use_container_width=True,
+            hide_index=True
+        )
 
     with tab_hoses:
         st.header("Dashboard de Mangueiras de Incêndio")
         st.info("Funcionalidade em desenvolvimento.")
 
 
-# --- Boilerplate de Autenticação ---
-if not show_login_page():
+if not show_logi_page():
     st.stop()
 show_user_header()
 show_logout_button()

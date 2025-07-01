@@ -1,5 +1,3 @@
-# Pagina_Inicial.py
-
 import streamlit as st
 import sys
 import os

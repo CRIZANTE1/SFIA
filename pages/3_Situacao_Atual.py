@@ -97,7 +97,6 @@ def show_dashboard_page():
         )
         filtered_df = dashboard_df[dashboard_df['status_atual'].isin(status_filter)]
         
-        # Cria um mapa de cores a partir do DataFrame filtrado
         color_map = pd.Series(filtered_df.cor.values, index=filtered_df.status_atual).to_dict()
         
         display_df = filtered_df.rename(columns={
@@ -112,7 +111,7 @@ def show_dashboard_page():
         )
         
         st.dataframe(
-            styler.hide(subset=['cor'], axis=1), # Esconde a coluna 'cor' da visualização
+            styler.hide(subset=['cor'], axis=1),
             use_container_width=True,
             hide_index=True
         )
@@ -122,7 +121,8 @@ def show_dashboard_page():
         st.info("Funcionalidade em desenvolvimento.")
 
 
-if not show_logi_page():
+
+if not show_login_page():
     st.stop()
 show_user_header()
 show_logout_button()

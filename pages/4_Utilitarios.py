@@ -1,3 +1,5 @@
+# pages/4_Utilitarios.py
+
 import streamlit as st
 import qrcode
 from PIL import Image
@@ -30,7 +32,7 @@ def generate_qr_code_image(data):
 
 def image_to_bytes(img: Image.Image):
     """
-    Converte um objeto de imagem do Pillow para bytes.
+    Converte um objeto de imagem do Pillow para bytes no formato PNG.
     """
     buf = io.BytesIO()
     img.save(buf, format="PNG")
@@ -45,7 +47,6 @@ def show_utilities_page():
         "O sistema irá gerar um QR Code para cada selo, pronto para download e impressão."
     )
 
-    # Área de texto para inserir os selos
     selo_texts = st.text_area(
         "Insira os números dos Selos INMETRO (um por linha):",
         height=250,
@@ -53,27 +54,30 @@ def show_utilities_page():
     )
 
     if selo_texts:
-        # Processa a entrada: remove linhas vazias e espaços extras
         selo_list = [selo.strip() for selo in selo_texts.split('\n') if selo.strip()]
 
         if selo_list:
             st.subheader("Pré-visualização dos QR Codes Gerados")
             
-            # Cria colunas para exibir os QR codes
             cols = st.columns(3)
-            generated_images = {} # Dicionário para armazenar imagens geradas {selo: img_bytes}
+            generated_images_bytes = {} # Dicionário para armazenar imagens como bytes {selo: img_bytes}
 
             for i, selo in enumerate(selo_list):
                 with cols[i % 3]:
                     st.markdown(f"**Selo: `{selo}`**")
-                    qr_img = generate_qr_code_image(selo)
-                    st.image(qr_img, width=200)
+                    qr_img_object = generate_qr_code_image(selo)
                     
-                    # Converte a imagem para bytes para o download
-                    img_bytes = image_to_bytes(qr_img)
-                    generated_images[selo] = img_bytes
+                    # --- CORREÇÃO APLICADA AQUI ---
+                    # Converte a imagem para bytes ANTES de passá-la para os widgets
+                    img_bytes = image_to_bytes(qr_img_object)
+                    
+                    # Exibe a imagem a partir dos bytes
+                    st.image(img_bytes, width=200)
+                    
+                    # Armazena os bytes para o download do ZIP
+                    generated_images_bytes[selo] = img_bytes
 
-                    # Adiciona um botão de download individual
+                    # O botão de download individual já usava os bytes, então está correto
                     st.download_button(
                         label="Baixar PNG",
                         data=img_bytes,
@@ -85,10 +89,9 @@ def show_utilities_page():
             st.markdown("---")
             st.subheader("Baixar Todos os QR Codes")
 
-            # Cria um arquivo ZIP em memória
             zip_buffer = io.BytesIO()
             with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
-                for selo, img_bytes in generated_images.items():
+                for selo, img_bytes in generated_images_bytes.items():
                     zip_file.writestr(f"qrcode_selo_{selo}.png", img_bytes)
             
             st.download_button(
@@ -102,11 +105,8 @@ def show_utilities_page():
 # --- Boilerplate de Autenticação ---
 if not show_login_page():
     st.stop()
-
 show_user_header()
 show_logout_button()
-
-# Esta página só deve ser acessível para administradores
 if is_admin_user():
     st.sidebar.success("✅ Acesso completo")
     show_utilities_page()

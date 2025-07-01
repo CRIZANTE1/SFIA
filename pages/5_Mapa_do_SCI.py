@@ -11,9 +11,6 @@ from auth.auth_utils import is_admin_user
 from operations.demo_page import show_demo_page
 
 def get_latest_locations(df_full):
-    """
-    Processa o histórico completo para obter a localização mais recente de cada equipamento.
-    """
     if df_full.empty: return pd.DataFrame()
     if 'latitude' not in df_full.columns or 'longitude' not in df_full.columns:
         st.warning("As colunas 'latitude' e 'longitude' não foram encontradas.")
@@ -33,18 +30,13 @@ def assign_color_by_agent(df):
     """
     Adiciona uma coluna 'color' ao DataFrame com base no tipo de agente extintor.
     """
-    # Mapeamento de tipo de agente para uma cor em formato RGBA (com transparência)
     color_map = {
-        'PQS ABC': [255, 255, 0, 160],   # Amarelo
-        'PQS BC':  [0, 100, 255, 160],   # Azul
-        'CO2':     [128, 128, 128, 160], # Cinza
-        'Água':    [0, 255, 255, 160],   # Ciano/Azul Claro
-        'Espuma':  [0, 200, 0, 160],     # Verde
+        'PQS ABC': [255, 255, 0, 160], 'PQS BC':  [0, 100, 255, 160],
+        'CO2':     [128, 128, 128, 160], 'Água':    [0, 255, 255, 160],
+        'Espuma':  [0, 200, 0, 160],
     }
-    # Cor padrão para tipos não mapeados ou nulos
-    default_color = [255, 75, 75, 160] # Vermelho
+    default_color = [255, 75, 75, 160]
 
-    # Usa .str.contains para ser mais flexível (ex: "Pó Químico (ABC)" ainda seria amarelo)
     conditions = [
         df['tipo_agente'].str.contains("ABC", case=False, na=False),
         df['tipo_agente'].str.contains("BC", case=False, na=False),
@@ -54,8 +46,9 @@ def assign_color_by_agent(df):
     ]
     choices = [color_map['PQS ABC'], color_map['PQS BC'], color_map['CO2'], color_map['Água'], color_map['Espuma']]
     
-    # Usa np.select para aplicar as cores com base nas condições
-    df['color'] = pd.np.select(conditions, choices, default=default_color)
+    # --- CORREÇÃO APLICADA AQUI ---
+    # Troca pd.np.select por np.select
+    df['color'] = np.select(conditions, choices, default=default_color).tolist()
     
     return df
 
@@ -79,18 +72,15 @@ def show_map_page():
         if locations_df.empty:
             st.warning("Nenhum extintor com dados de geolocalização válidos foi encontrado."); return
         
-        # --- MELHORIA DE COR APLICADA AQUI ---
         locations_df = assign_color_by_agent(locations_df)
 
         st.success(f"Exibindo a localização de **{len(locations_df)}** extintores.")
                 
         map_data = locations_df.rename(columns={'latitude': 'lat', 'longitude': 'lon'})
         
-        # Define o tamanho fixo para todos os pontos e usa a coluna de cor dinâmica
         st.map(map_data, zoom=16, size=0.3, color='color')
 
         with st.expander("Ver detalhes e legenda de cores"):
-            # Legenda de cores
             st.markdown("##### Legenda de Cores")
             st.markdown("""
                 - <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background-color:rgba(255,255,0,0.8);"></span> Pó Químico ABC

@@ -43,7 +43,7 @@ def assign_visual_properties(df):
     df['capacidade_num'] = df['capacidade'].str.extract('(\d+\.?\d*)').astype(float).fillna(1)
     
     # Mapeia a capacidade para um tamanho no mapa (ex: capacidade * 10 = tamanho em metros)
-    df['size'] = df['capacidade_num'] * 0.50
+    df['size'] = df['capacidade_num'] * 0.25
     
     return df
 

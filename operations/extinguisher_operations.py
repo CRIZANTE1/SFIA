@@ -80,8 +80,8 @@ def save_inspection(data):
     
     # Ordem das colunas para corresponder à planilha
     data_row = [
-        data.get('numero_selo_inmetro'),
         data.get('numero_identificacao'),
+        data.get('numero_selo_inmetro'),
         data.get('tipo_agente'),
         data.get('capacidade'),
         data.get('marca_fabricante'),

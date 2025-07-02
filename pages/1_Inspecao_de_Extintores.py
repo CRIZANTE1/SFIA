@@ -22,36 +22,53 @@ set_page_config()
 
 def decode_qr_from_image(image_file):
     """
-    Decodifica o QR code e retorna o ID do Equipamento.
-    Formato esperado: ...#...#...#ID_EQUIPAMENTO#...
-    Retorna uma tupla: (id_equipamento, selo_inmetro), onde selo_inmetro é None.
+    Decodifica o QR code, aplicando pré-processamento para melhorar a detecção.
+    Retorna o ID do Equipamento e o Selo (se houver).
     """
     try:
         file_bytes = np.asarray(bytearray(image_file.read()), dtype=np.uint8)
         img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+
+        if img is None:
+            return None, None
+
+        # 1. Converte para tons de cinza - simplifica a imagem para o detector
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        # 2. Binarização Adaptativa - aumenta o contraste em diferentes condições de iluminação
+        # Isso transforma a imagem em apenas preto e branco, ideal para QR codes.
+        thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+                                       cv2.THRESH_BINARY, 11, 2)
+
+        # Inicializa o detector
         detector = cv2.QRCodeDetector()
-        decoded_text, _, _ = detector.detectAndDecode(img)
         
+        # Tenta decodificar a imagem processada
+        decoded_text, _, _ = detector.detectAndDecode(thresh)
+
+        # Se falhar na imagem processada, tenta na imagem original em tons de cinza
+        if not decoded_text:
+            decoded_text, _, _ = detector.detectAndDecode(gray)
+
+        # Se ainda falhar, tenta na imagem colorida original como último recurso
+        if not decoded_text:
+            decoded_text, _, _ = detector.detectAndDecode(img)
+            
         if not decoded_text:
             return None, None
         
+        # Lógica de extração (permanece a mesma)
         decoded_text = decoded_text.strip()
-        
-        # Cenário 1: QR Code Composto (ex: 2#...#EXT#30704#...)
         if '#' in decoded_text:
             parts = decoded_text.split('#')
             if len(parts) >= 4:
-                # O ID do equipamento é o 4º campo (índice 3)
-                id_equipamento = parts[3].strip() 
-                # Não há selo neste formato, então retornamos None
-                selo_inmetro = None 
+                id_equipamento = parts[3].strip()
+                selo_inmetro = None
                 return id_equipamento, selo_inmetro
-            return None, None # Formato composto inválido
-        
-        # Cenário 2: QR Code Simples (o texto inteiro é o ID do equipamento)
+            return None, None
         else:
             id_equipamento = decoded_text
-            selo_inmetro = None # Não há informação de selo em um QR simples
+            selo_inmetro = None
             return id_equipamento, selo_inmetro
             
     except Exception:

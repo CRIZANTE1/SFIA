@@ -150,12 +150,28 @@ def main_inspection_page():
 
     with tab_qr:
         st.header("Verificação Rápida de Equipamento")
-        st.session_state.setdefault('qr_step', 'start'); st.session_state.setdefault('qr_id', None); st.session_state.setdefault('qr_selo', None); st.session_state.setdefault('last_record', None); st.session_state.setdefault('location', None)
+        st.session_state.setdefault('qr_step', 'start'); st.session_state.setdefault('qr_id', None)
+        st.session_state.setdefault('qr_selo', None); st.session_state.setdefault('last_record', None)
+        st.session_state.setdefault('location', None)
+        
         if st.session_state.qr_step == 'start' and st.session_state.location is None:
-            loc = streamlit_js_eval(js_expressions="""..."""); 
-            if loc: st.session_state.location = loc; st.rerun()
+            loc = streamlit_js_eval(js_expressions="""
+                new Promise(function(resolve, reject) {
+                    navigator.geolocation.getCurrentPosition(
+                        function(position) { resolve({ latitude: position.coords.latitude, longitude: position.coords.longitude }); },
+                        function(error) { resolve(null); }
+                    );
+                });
+            """)
+            if loc:
+                st.session_state.location = loc
+                st.rerun()
+        
         if st.session_state.qr_step == 'start':
-            if st.button("📷 Iniciar Leitura de QR Code", type="primary"): st.session_state.qr_step = 'scan'; st.rerun()
+            st.info("Clique abaixo para escanear o QR Code do equipamento.")
+            if st.button("📷 Iniciar Leitura de QR Code", type="primary"):
+                st.session_state.qr_step = 'scan'; st.rerun()
+        
         if st.session_state.qr_step == 'scan':
             qr_image = st.camera_input("Aponte para o QR Code do Equipamento", key="qr_camera")
             if qr_image:
@@ -167,29 +183,54 @@ def main_inspection_page():
                         st.session_state.last_record = find_last_record(load_sheet_data("extintores"), decoded_id, 'numero_identificacao')
                         st.session_state.qr_step = 'inspect'; st.rerun()
                     else: st.warning("QR Code não detectado ou em formato inválido.")
+        
         if st.session_state.qr_step == 'inspect':
             if st.session_state.last_record:
-                last_record = st.session_state.last_record; st.success(f"Equipamento Encontrado! ID: **{st.session_state.qr_id}**")
+                last_record = st.session_state.last_record
+                st.success(f"Equipamento Encontrado! ID: **{st.session_state.qr_id}**")
+                
                 with st.container(border=True):
-                    col1, col2, col3 = st.columns(3); col1.metric("Último Selo Registrado", last_record.get('numero_selo_inmetro', 'N/A')); col2.metric("Tipo", last_record.get('tipo_agente', 'N/A'))
+                    col1, col2, col3 = st.columns(3)
+                    col1.metric("Último Selo Registrado", last_record.get('numero_selo_inmetro', 'N/A'))
+                    col2.metric("Tipo", last_record.get('tipo_agente', 'N/A'))
                     vencimentos = [pd.to_datetime(last_record.get(d), errors='coerce') for d in ['data_proxima_inspecao', 'data_proxima_manutencao_2_nivel', 'data_proxima_manutencao_3_nivel']]
                     valid_vencimentos = [d for d in vencimentos if pd.notna(d)]; proximo_vencimento = min(valid_vencimentos) if valid_vencimentos else None
                     vencimento_str = proximo_vencimento.strftime('%d/%m/%Y') if proximo_vencimento else 'N/A'; col3.metric("Próximo Vencimento", vencimento_str)
+
                 with st.form("quick_inspection_form"):
-                    st.subheader("Registrar Nova Inspeção (Nível 1)"); location = st.session_state.location
+                    st.subheader("Registrar Nova Inspeção (Nível 1)")
+                    
+                    location = st.session_state.location
                     if location: st.info(f"📍 Localização Capturada: Lat: {location['latitude']:.5f}, Lon: {location['longitude']:.5f}")
-                    else: st.warning("⚠️ Não foi possível obter a localização.")
-                    status = st.radio("Status:", ["Conforme", "Não Conforme"], horizontal=True); issues = st.multiselect("Não Conformidades:", ["Lacre Violado", "Manômetro Fora de Faixa", "Dano Visível"]) if status == "Não Conforme" else []
+                    else: st.warning("⚠️ Não foi possível obter a localização. Verifique as permissões.")
+                    
+                    status = st.radio("Status:", ["Conforme", "Não Conforme"], horizontal=True)
+                    issues = st.multiselect("Não Conformidades:", ["Lacre Violado", "Manômetro Fora de Faixa", "Dano Visível"]) if status == "Não Conforme" else []
+                    
                     if st.form_submit_button("✅ Registrar Inspeção", type="primary"):
                         if not location: st.error("Erro: A geolocalização é necessária.")
                         else:
                             with st.spinner("Salvando..."):
-                                new_record = last_record.copy(); new_record['numero_selo_inmetro'] = last_record.get('numero_selo_inmetro')
+                                new_record = last_record.copy()
+                                # Mantém o último selo conhecido, pois o QR não fornece um novo.
+                                new_record['numero_selo_inmetro'] = last_record.get('numero_selo_inmetro')
                                 observacoes = "Inspeção de rotina OK." if status == "Conforme" else ", ".join(issues)
                                 temp_plan_record = {'aprovado_inspecao': "Sim" if status == "Conforme" else "Não", 'observacoes_gerais': observacoes}
-                                new_record.update({'tipo_servico': "Inspeção", 'data_servico': date.today().isoformat(), 'inspetor_responsavel': get_user_display_name(), 'aprovado_inspecao': temp_plan_record['aprovado_inspecao'], 'observacoes_gerais': observacoes, 'plano_de_acao': generate_action_plan(temp_plan_record), 'link_relatorio_pdf': None, 'latitude': location['latitude'], 'longitude': location['longitude']})
+                                new_record.update({
+                                    'tipo_servico': "Inspeção", 'data_servico': date.today().isoformat(),
+                                    'inspetor_responsavel': get_user_display_name(),
+                                    'aprovado_inspecao': temp_plan_record['aprovado_inspecao'],
+                                    'observacoes_gerais': observacoes,
+                                    'plano_de_acao': generate_action_plan(temp_plan_record),
+                                    'link_relatorio_pdf': None,
+                                    'latitude': location['latitude'],
+                                    'longitude': location['longitude']
+                                })
                                 new_record.update(calculate_next_dates(new_record['data_servico'], 'Inspeção', new_record['tipo_agente']))
-                                if save_inspection(new_record): st.success(f"Inspeção para o ID {st.session_state.qr_id} registrada!"); st.balloons(); st.session_state.qr_step = 'start'; st.session_state.location = None; st.rerun()
+                                
+                                if save_inspection(new_record):
+                                    st.success(f"Inspeção para o ID {st.session_state.qr_id} registrada!"); st.balloons()
+                                    st.session_state.qr_step = 'start'; st.session_state.location = None; st.rerun()
             else:
                 st.error(f"Nenhum registro encontrado para o ID de Equipamento '{st.session_state.qr_id}'.")
                 if st.button("Tentar Novamente"): st.session_state.qr_step = 'start'; st.rerun()

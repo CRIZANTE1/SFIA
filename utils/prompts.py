@@ -26,7 +26,7 @@ def get_extinguisher_inspection_prompt():
     9.  `empresa_executante`: Nome da empresa que realizou o serviço.
     10. `inspetor_responsavel`: Nome do responsável técnico.
     11. `aprovado_inspecao`: Da coluna "STATUS" ou "INSPEÇÃO FINAL" ('CONFORME'/'A' = "Sim", 'N/CONFORME'/'R' = "Não").
-    12. `observacoes_gerais`: Da coluna "Alterações" ou "PEÇA". Use legendas para decodificar, se houver. Adicione o "Local" se disponível.
+    12. `observacoes_gerais`: Da coluna "Alterações" ou "PEÇA". Use legendas para decodificar
 
     **Formato de Saída OBRIGATÓRIO:**
     Retorne a resposta APENAS como um objeto JSON com uma chave "extintores" contendo uma LISTA de objetos,

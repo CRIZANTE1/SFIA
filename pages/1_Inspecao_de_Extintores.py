@@ -20,11 +20,11 @@ from config.page_config import set_page_config
 
 set_page_config()
 
-# --- Funções para a Aba de Inspeção Rápida ---
 def decode_qr_from_image(image_file):
     """
-    Decodifica o QR code, que pode ser simples ou composto.
-    Retorna sempre o ID do Equipamento e o Selo (se houver).
+    Decodifica o QR code e retorna o ID do Equipamento.
+    Formato esperado: ...#...#...#ID_EQUIPAMENTO#...
+    Retorna uma tupla: (id_equipamento, selo_inmetro), onde selo_inmetro é None.
     """
     try:
         file_bytes = np.asarray(bytearray(image_file.read()), dtype=np.uint8)

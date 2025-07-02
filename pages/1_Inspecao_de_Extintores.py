@@ -20,26 +20,53 @@ from config.page_config import set_page_config
 
 set_page_config()
 
-# --- Funções para a Aba de Inspeção Rápida ---
 def decode_qr_from_image(image_file):
+    """
+    Decodifica o QR code, aplicando pré-processamento para melhorar a detecção.
+    Retorna o ID do Equipamento e o Selo (se houver).
+    """
     try:
         file_bytes = np.asarray(bytearray(image_file.read()), dtype=np.uint8)
         img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+
+        if img is None:
+            return None, None
+
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+                                       cv2.THRESH_BINARY, 11, 2)
+
+        # Inicializa o detector
         detector = cv2.QRCodeDetector()
-        decoded_text, _, _ = detector.detectAndDecode(img)
-        if not decoded_text: return None, None
+        
+        # Tenta decodificar a imagem processada
+        decoded_text, _, _ = detector.detectAndDecode(thresh)
+
+        # Se falhar na imagem processada, tenta na imagem original em tons de cinza
+        if not decoded_text:
+            decoded_text, _, _ = detector.detectAndDecode(gray)
+
+        # Se ainda falhar, tenta na imagem colorida original como último recurso
+        if not decoded_text:
+            decoded_text, _, _ = detector.detectAndDecode(img)
+            
+        if not decoded_text:
+            return None, None
+        
+        # Lógica de extração (permanece a mesma)
         decoded_text = decoded_text.strip()
         if '#' in decoded_text:
             parts = decoded_text.split('#')
             if len(parts) >= 4:
                 id_equipamento = parts[3].strip()
-                selo_inmetro = None 
+                selo_inmetro = None
                 return id_equipamento, selo_inmetro
             return None, None
         else:
             id_equipamento = decoded_text
             selo_inmetro = None
             return id_equipamento, selo_inmetro
+            
     except Exception:
         return None, None
 

@@ -16,7 +16,7 @@ def get_extinguisher_inspection_prompt():
         *   **Se a coluna não existir ou não for 2 ou 3**, verifique a coluna "Nivel da Inspeção". Se o valor for '1', retorne "Inspeção".
         *   Use "Inspeção" como valor padrão se nenhuma das condições acima for atendida.
 
-    2.  `numero_identificacao`: Extraia da coluna "N° DO CILINDRO / RECIPIENTE" ou "Extin.". Este é o campo chave.
+    2.  `numero_identificacao`: Extraia da coluna "N° DO CILINDRO / RECIPIENTE". Este é o campo chave.
     3.  `numero_selo_inmetro`: Extraia da coluna "N° SELO INMETRO".
     4.  `tipo_agente`: Extraia da coluna "Tipo" ou "TIPO".
     5.  `capacidade`: Extraia da coluna "CAPAC. CARGA" ou do tipo (ex: "PQS 4,5KG").
@@ -32,13 +32,13 @@ def get_extinguisher_inspection_prompt():
     Retorne a resposta APENAS como um objeto JSON com uma chave "extintores" contendo uma LISTA de objetos,
     onde cada objeto representa um extintor.
 
-    Exemplo de formato de saída:
+    Exemplo de formato de saída obrigatório:
     {
       "extintores": [
         {
           "tipo_servico": "Manutenção Nível 2",
-          "numero_identificacao": "15",
-          "numero_selo_inmetro": "20899",
+          "numero_identificacao": "20579",
+          "numero_selo_inmetro": "306472069",
           "tipo_agente": "CO2",
           "capacidade": "6 kg",
           "marca_fabricante": "KB",

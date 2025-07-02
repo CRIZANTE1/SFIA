@@ -1,3 +1,5 @@
+# pages/1_Inspecao_de_Extintores.py
+
 import streamlit as st
 import pandas as pd
 import cv2
@@ -23,8 +25,8 @@ set_page_config()
 # --- Funções para a Aba de Inspeção Rápida ---
 def decode_qr_from_image(image_file):
     """
-    Decodifica o QR code e retorna o ID do Equipamento e o Selo INMETRO.
-    Retorna uma tupla: (id_equipamento, selo_inmetro)
+    Decodifica o QR code, que pode ser simples ou composto.
+    Retorna sempre o ID do Equipamento e o Selo (se houver).
     """
     try:
         file_bytes = np.asarray(bytearray(image_file.read()), dtype=np.uint8)
@@ -36,15 +38,24 @@ def decode_qr_from_image(image_file):
             return None, None
         
         decoded_text = decoded_text.strip()
+        
+        # Cenário 1: QR Code Composto (ex: 2#...#EXT#30704#...)
         if '#' in decoded_text:
             parts = decoded_text.split('#')
             if len(parts) >= 4:
-                id_equipamento = parts[1].strip()
-                selo_inmetro = parts[3].strip()
+                # O ID do equipamento é o 4º campo (índice 3)
+                id_equipamento = parts[3].strip() 
+                # Não há selo neste formato, então retornamos None
+                selo_inmetro = None 
                 return id_equipamento, selo_inmetro
-            return None, None
+            return None, None # Formato composto inválido
+        
+        # Cenário 2: QR Code Simples (o texto inteiro é o ID do equipamento)
         else:
-            return decoded_text, None
+            id_equipamento = decoded_text
+            selo_inmetro = None # Não há informação de selo em um QR simples
+            return id_equipamento, selo_inmetro
+            
     except Exception:
         return None, None
 
@@ -95,20 +106,12 @@ def main_inspection_page():
         st.session_state.setdefault('qr_selo', None); st.session_state.setdefault('last_record', None)
         st.session_state.setdefault('location', None)
         
-        # Pede a localização na etapa inicial, antes do usuário fazer qualquer coisa.
         if st.session_state.qr_step == 'start' and st.session_state.location is None:
             loc = streamlit_js_eval(js_expressions="""
                 new Promise(function(resolve, reject) {
                     navigator.geolocation.getCurrentPosition(
-                        function(position) {
-                            resolve({
-                                latitude: position.coords.latitude,
-                                longitude: position.coords.longitude
-                            });
-                        },
-                        function(error) {
-                            resolve(null);
-                        }
+                        function(position) { resolve({ latitude: position.coords.latitude, longitude: position.coords.longitude }); },
+                        function(error) { resolve(null); }
                     );
                 });
             """)
@@ -117,11 +120,7 @@ def main_inspection_page():
                 st.rerun()
         
         if st.session_state.qr_step == 'start':
-            if st.session_state.location:
-                st.info(f"📍 Localização pronta. Clique abaixo para escanear.")
-            else:
-                st.warning("Aguardando permissão de localização. Se necessário, recarregue a página.")
-
+            st.info("Clique abaixo para escanear o QR Code do equipamento.")
             if st.button("📷 Iniciar Leitura de QR Code", type="primary"):
                 st.session_state.qr_step = 'scan'; st.rerun()
         
@@ -132,10 +131,10 @@ def main_inspection_page():
                     decoded_id, decoded_selo = decode_qr_from_image(qr_image)
                     if decoded_id:
                         st.session_state.qr_id = decoded_id; st.session_state.qr_selo = decoded_selo
-                        st.success(f"QR lido! ID Equip: **{decoded_id}** | Selo Atual: **{decoded_selo or 'N/A'}**")
+                        st.success(f"QR lido! ID do Equipamento: **{decoded_id}**")
                         st.session_state.last_record = find_last_record(load_sheet_data("extintores"), decoded_id, 'numero_identificacao')
                         st.session_state.qr_step = 'inspect'; st.rerun()
-                    else: st.warning("QR Code não detectado.")
+                    else: st.warning("QR Code não detectado ou em formato inválido.")
         
         if st.session_state.qr_step == 'inspect':
             if st.session_state.last_record:
@@ -154,21 +153,19 @@ def main_inspection_page():
                     st.subheader("Registrar Nova Inspeção (Nível 1)")
                     
                     location = st.session_state.location
-                    if location:
-                        st.info(f"📍 Localização Capturada: Lat: {location['latitude']:.5f}, Lon: {location['longitude']:.5f}")
-                    else:
-                        st.warning("⚠️ Não foi possível obter a localização. Verifique as permissões do navegador e recarregue a página.")
+                    if location: st.info(f"📍 Localização Capturada: Lat: {location['latitude']:.5f}, Lon: {location['longitude']:.5f}")
+                    else: st.warning("⚠️ Não foi possível obter a localização. Verifique as permissões.")
                     
                     status = st.radio("Status:", ["Conforme", "Não Conforme"], horizontal=True)
                     issues = st.multiselect("Não Conformidades:", ["Lacre Violado", "Manômetro Fora de Faixa", "Dano Visível"]) if status == "Não Conforme" else []
                     
                     if st.form_submit_button("✅ Registrar Inspeção", type="primary"):
-                        if not location:
-                            st.error("Erro: A geolocalização é necessária. Recarregue a página e permita o acesso.")
+                        if not location: st.error("Erro: A geolocalização é necessária.")
                         else:
                             with st.spinner("Salvando..."):
                                 new_record = last_record.copy()
-                                new_record['numero_selo_inmetro'] = st.session_state.qr_selo or last_record.get('numero_selo_inmetro')
+                                # Mantém o último selo conhecido, pois o QR não fornece um novo.
+                                new_record['numero_selo_inmetro'] = last_record.get('numero_selo_inmetro')
                                 observacoes = "Inspeção de rotina OK." if status == "Conforme" else ", ".join(issues)
                                 temp_plan_record = {'aprovado_inspecao': "Sim" if status == "Conforme" else "Não", 'observacoes_gerais': observacoes}
                                 new_record.update({
@@ -184,7 +181,7 @@ def main_inspection_page():
                                 new_record.update(calculate_next_dates(new_record['data_servico'], 'Inspeção', new_record['tipo_agente']))
                                 
                                 if save_inspection(new_record):
-                                    st.success(f"Inspeção para o ID {st.session_state.qr_id} registrada com sucesso!"); st.balloons()
+                                    st.success(f"Inspeção para o ID {st.session_state.qr_id} registrada!"); st.balloons()
                                     st.session_state.qr_step = 'start'; st.session_state.location = None; st.rerun()
             else:
                 st.error(f"Nenhum registro encontrado para o ID de Equipamento '{st.session_state.qr_id}'.")

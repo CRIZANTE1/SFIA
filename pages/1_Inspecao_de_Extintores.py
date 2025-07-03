@@ -148,30 +148,67 @@ def main_inspection_page():
                     st.session_state.uploaded_pdf_file = None
                     st.rerun()
 
+        # --- Aba 2: Inspeção Rápida por QR Code (com opção de digitação manual) ---
     with tab_qr:
         st.header("Verificação Rápida de Equipamento")
         st.session_state.setdefault('qr_step', 'start'); st.session_state.setdefault('qr_id', None)
         st.session_state.setdefault('qr_selo', None); st.session_state.setdefault('last_record', None)
         st.session_state.setdefault('location', None)
         
+        # Pede a localização
         if st.session_state.qr_step == 'start' and st.session_state.location is None:
-            loc = streamlit_js_eval(js_expressions="""
-                new Promise(function(resolve, reject) {
-                    navigator.geolocation.getCurrentPosition(
-                        function(position) { resolve({ latitude: position.coords.latitude, longitude: position.coords.longitude }); },
-                        function(error) { resolve(null); }
-                    );
-                });
-            """)
-            if loc:
-                st.session_state.location = loc
-                st.rerun()
+            with st.spinner("Aguardando permissão de localização do navegador..."):
+                loc = streamlit_js_eval(js_expressions="""
+                    new Promise(function(resolve, reject) {
+                        navigator.geolocation.getCurrentPosition(
+                            function(position) { resolve({ latitude: position.coords.latitude, longitude: position.coords.longitude }); },
+                            function(error) { resolve(null); }
+                        );
+                    });
+                """)
+                if loc:
+                    st.session_state.location = loc
+                    st.rerun()
         
+        # ETAPA 1: TELA INICIAL
         if st.session_state.qr_step == 'start':
-            st.info("Clique abaixo para escanear o QR Code do equipamento.")
-            if st.button("📷 Iniciar Leitura de QR Code", type="primary"):
-                st.session_state.qr_step = 'scan'; st.rerun()
+            if st.session_state.location:
+                st.success(f"📍 Localização pronta!")
+            else:
+                st.error("⚠️ A geolocalização é necessária para continuar.")
+
+            st.subheader("1. Identifique o Equipamento")
+            
+            col1, col2, col3 = st.columns([2, 0.5, 2])
+            
+            with col1:
+                st.info("Opção A: Leitura Rápida")
+                if st.button("📷 Escanear QR Code", type="primary", use_container_width=True, disabled=not st.session_state.location):
+                    st.session_state.qr_step = 'scan'
+                    st.rerun()
+
+            with col2:
+                st.write("<h5 style='text-align: center; margin-top: 2.5rem;'>OU</h5>", unsafe_allow_html=True)
+            
+            with col3:
+                st.info("Opção B: Digitação Manual")
+                manual_id = st.text_input("Digite o ID do Equipamento", key="manual_id_input", label_visibility="collapsed", placeholder="Digite o ID aqui...")
+                if st.button("🔍 Buscar por ID", use_container_width=True, disabled=not st.session_state.location):
+                    if manual_id:
+                        st.session_state.qr_id = manual_id
+                        st.session_state.qr_selo = None # Não há selo na digitação manual
+                        st.session_state.last_record = find_last_record(load_sheet_data("extintores"), manual_id, 'numero_identificacao')
+                        st.session_state.qr_step = 'inspect'
+                        st.rerun()
+                    else:
+                        st.warning("Por favor, digite um ID para buscar.")
+            
+            if not st.session_state.location:
+                 if st.button("🔄 Tentar Obter Localização Novamente"):
+                    st.session_state.location = None
+                    st.rerun()
         
+        # ETAPA 2: ESCANEANDO
         if st.session_state.qr_step == 'scan':
             qr_image = st.camera_input("Aponte para o QR Code do Equipamento", key="qr_camera")
             if qr_image:
@@ -183,7 +220,11 @@ def main_inspection_page():
                         st.session_state.last_record = find_last_record(load_sheet_data("extintores"), decoded_id, 'numero_identificacao')
                         st.session_state.qr_step = 'inspect'; st.rerun()
                     else: st.warning("QR Code não detectado ou em formato inválido.")
+            if st.button("Cancelar Leitura"):
+                st.session_state.qr_step = 'start'
+                st.rerun()
         
+        # ETAPA 3: INSPEÇÃO
         if st.session_state.qr_step == 'inspect':
             if st.session_state.last_record:
                 last_record = st.session_state.last_record
@@ -212,8 +253,7 @@ def main_inspection_page():
                         else:
                             with st.spinner("Salvando..."):
                                 new_record = last_record.copy()
-                                # Mantém o último selo conhecido, pois o QR não fornece um novo.
-                                new_record['numero_selo_inmetro'] = last_record.get('numero_selo_inmetro')
+                                new_record['numero_selo_inmetro'] = st.session_state.qr_selo or last_record.get('numero_selo_inmetro')
                                 observacoes = "Inspeção de rotina OK." if status == "Conforme" else ", ".join(issues)
                                 temp_plan_record = {'aprovado_inspecao': "Sim" if status == "Conforme" else "Não", 'observacoes_gerais': observacoes}
                                 new_record.update({
@@ -233,7 +273,8 @@ def main_inspection_page():
                                     st.session_state.qr_step = 'start'; st.session_state.location = None; st.rerun()
             else:
                 st.error(f"Nenhum registro encontrado para o ID de Equipamento '{st.session_state.qr_id}'.")
-                if st.button("Tentar Novamente"): st.session_state.qr_step = 'start'; st.rerun()
+                if st.button("Inspecionar Outro Equipamento"):
+                    st.session_state.qr_step = 'start'; st.rerun()
 
 # --- Boilerplate de Autenticação ---
 if not show_login_page(): st.stop()

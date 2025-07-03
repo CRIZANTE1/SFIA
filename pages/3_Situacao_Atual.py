@@ -1,3 +1,5 @@
+# pages/3_Situacao_Atual.py
+
 import streamlit as st
 import pandas as pd
 from datetime import date
@@ -5,6 +7,7 @@ from dateutil.relativedelta import relativedelta
 import sys
 import os
 import numpy as np
+from streamlit_js_eval import streamlit_js_eval # Importa a biblioteca
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from operations.history import load_sheet_data
@@ -17,49 +20,31 @@ from operations.corrective_actions import save_corrective_action
 set_page_config()
 
 def get_consolidated_status_df(df_full):
+    # (Sua função, sem alterações)
     if df_full.empty: return pd.DataFrame()
     consolidated_data = []
-    # Cria uma cópia para evitar SettingWithCopyWarning
     df_copy = df_full.copy()
     df_copy['data_servico'] = pd.to_datetime(df_copy['data_servico'], errors='coerce')
     df_copy = df_copy.dropna(subset=['data_servico'])
     unique_ids = df_copy['numero_identificacao'].unique()
-
     for ext_id in unique_ids:
         ext_df = df_copy[df_copy['numero_identificacao'] == ext_id].sort_values(by='data_servico')
         if ext_df.empty: continue
-        
         latest_record = ext_df.iloc[-1]
-        
         last_insp_date = ext_df[ext_df['tipo_servico'] == 'Inspeção']['data_servico'].max()
         last_maint2_date = ext_df[ext_df['tipo_servico'] == 'Manutenção Nível 2']['data_servico'].max()
         last_maint3_date = ext_df[ext_df['tipo_servico'] == 'Manutenção Nível 3']['data_servico'].max()
-        
         next_insp = (last_insp_date + relativedelta(months=1)) if pd.notna(last_insp_date) else pd.NaT
         next_maint2 = (last_maint2_date + relativedelta(months=12)) if pd.notna(last_maint2_date) else pd.NaT
         next_maint3 = (last_maint3_date + relativedelta(years=5)) if pd.notna(last_maint3_date) else pd.NaT
-        
         vencimentos = [d for d in [next_insp, next_maint2, next_maint3] if pd.notna(d)]
         if not vencimentos: continue
-        
         proximo_vencimento_real = min(vencimentos)
-        today_ts = pd.Timestamp(date.today())
-        status_atual, cor = "OK", "green"
+        today_ts = pd.Timestamp(date.today()); status_atual, cor = "OK", "green"
         if proximo_vencimento_real < today_ts: status_atual = "VENCIDO"; cor = "red"
         elif latest_record.get('aprovado_inspecao') == 'Não': status_atual = "NÃO CONFORME (Aguardando Ação)"; cor = "orange"
-
         status_instalacao = "✅ Instalado" if pd.notna(latest_record.get('latitude')) and pd.notna(latest_record.get('longitude')) else "⚠️ Não Instalado"
-        
-        consolidated_data.append({
-            'numero_identificacao': ext_id, 'numero_selo_inmetro': latest_record.get('numero_selo_inmetro'),
-            'tipo_agente': latest_record.get('tipo_agente'), 'status_atual': status_atual,
-            'proximo_vencimento_geral': proximo_vencimento_real.strftime('%d/%m/%Y'),
-            'prox_venc_inspecao': next_insp.strftime('%d/%m/%Y') if pd.notna(next_insp) else "N/A",
-            'prox_venc_maint2': next_maint2.strftime('%d/%m/%Y') if pd.notna(next_maint2) else "N/A",
-            'prox_venc_maint3': next_maint3.strftime('%d/%m/%Y') if pd.notna(next_maint3) else "N/A",
-            'plano_de_acao': latest_record.get('plano_de_acao'), 'cor': cor,
-            'status_instalacao': status_instalacao
-        })
+        consolidated_data.append({'numero_identificacao': ext_id, 'numero_selo_inmetro': latest_record.get('numero_selo_inmetro'), 'tipo_agente': latest_record.get('tipo_agente'), 'status_atual': status_atual, 'proximo_vencimento_geral': proximo_vencimento_real.strftime('%d/%m/%Y'), 'prox_venc_inspecao': next_insp.strftime('%d/%m/%Y') if pd.notna(next_insp) else "N/A", 'prox_venc_maint2': next_maint2.strftime('%d/%m/%Y') if pd.notna(next_maint2) else "N/A", 'prox_venc_maint3': next_maint3.strftime('%d/%m/%Y') if pd.notna(next_maint3) else "N/A", 'plano_de_acao': latest_record.get('plano_de_acao'), 'cor': cor, 'status_instalacao': status_instalacao})
     return pd.DataFrame(consolidated_data)
     
 @st.dialog("Registrar Ação Corretiva")
@@ -159,7 +144,6 @@ def show_dashboard_page():
                         if st.button("✍️ Registrar Ação Corretiva", key=f"action_{row['numero_identificacao']}", use_container_width=True):
                             # Passa a localização capturada para o formulário
                             action_form(row, df_full_history, location)
-
 
     with tab_hoses:
         st.header("Dashboard de Mangueiras de Incêndio")

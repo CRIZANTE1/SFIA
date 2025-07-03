@@ -6,7 +6,7 @@ from datetime import date
 import sys
 import os
 from streamlit_js_eval import streamlit_js_eval
-rom operations.history import load_sheet_data, find_last_record
+from operations.history import load_sheet_data, find_last_record
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from operations.extinguisher_operations import (

@@ -6,6 +6,7 @@ from datetime import date
 import sys
 import os
 from streamlit_js_eval import streamlit_js_eval
+rom operations.history import load_sheet_data, find_last_record
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from operations.extinguisher_operations import (
@@ -70,14 +71,6 @@ def decode_qr_from_image(image_file):
     except Exception:
         return None, None
 
-def find_last_record(df, search_value, column_name):
-    if df.empty or column_name not in df.columns: return None
-    records = df[df[column_name].astype(str) == str(search_value)].copy()
-    if records.empty: return None
-    records['data_servico'] = pd.to_datetime(records['data_servico'], errors='coerce')
-    records = records.dropna(subset=['data_servico'])
-    if records.empty: return None
-    return records.sort_values(by='data_servico', ascending=False).iloc[0].to_dict()
 
 # --- Estrutura Principal da Página ---
 def main_inspection_page():

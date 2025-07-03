@@ -70,15 +70,25 @@ def action_form(item, df_full_history):
     acao_realizada = st.text_area("Descreva a ação corretiva realizada:")
     responsavel_acao = st.text_input("Responsável pela ação:", value=get_user_display_name())
     
+    st.markdown("---")
+    st.write("Se o equipamento foi substituído por outro, informe o ID abaixo:")
+    id_substituto = st.text_input("ID do Equipamento Substituto (Opcional)")
+
     if st.button("Salvar Ação", type="primary"):
         if not acao_realizada:
             st.error("Por favor, descreva a ação realizada.")
         else:
-            action_details = {'acao_realizada': acao_realizada, 'responsavel_acao': responsavel_acao}
-            # Pega o registro original mais recente do histórico completo
+            action_details = {
+                'acao_realizada': acao_realizada,
+                'responsavel_acao': responsavel_acao,
+                'id_substituto': id_substituto if id_substituto else None
+            }
+            
             original_record = df_full_history[df_full_history['numero_identificacao'] == item['numero_identificacao']].sort_values('data_servico').iloc[-1].to_dict()
+            
             if save_corrective_action(original_record, action_details, get_user_display_name()):
-                st.success("Ação corretiva registrada com sucesso!"); st.rerun()
+                st.success("Ação corretiva registrada com sucesso!")
+                st.rerun()
             else:
                 st.error("Falha ao registrar a ação.")
 

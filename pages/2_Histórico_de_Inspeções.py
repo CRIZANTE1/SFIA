@@ -29,7 +29,8 @@ def format_dataframe_for_display(df, is_log=False):
             'id_equipamento': 'ID do Equipamento',
             'problema_original': 'Problema Original',
             'acao_realizada': 'Ação Realizada',
-            'responsavel_acao': 'Responsável'
+            'responsavel_acao': 'Responsável',
+            'id_equipamento_substituto': 'ID do Equip. Substituto' 
         }
     else:
         # Formatação para o Histórico de Serviços

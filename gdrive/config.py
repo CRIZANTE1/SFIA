@@ -12,6 +12,7 @@ GDRIVE_SHEETS_ID = "1I7plDJVUwXCKByakjxMPKDBa7in5K4MgS5YFn9gmhW0" # Mantenha o s
 # Certifique-se de que sua planilha tenha abas com EXATAMENTE estes nomes.
 ADMIN_SHEET_NAME = "adm"
 EXTINGUISHER_SHEET_NAME = "extintores"
+LOG_ACTIONS = "log_acoes"
 
 
 def get_credentials_dict():

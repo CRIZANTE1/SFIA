@@ -19,12 +19,14 @@ set_page_config()
 def get_consolidated_status_df(df_full):
     if df_full.empty: return pd.DataFrame()
     consolidated_data = []
-    df_full['data_servico'] = pd.to_datetime(df_full['data_servico'], errors='coerce')
-    df_full.dropna(subset=['data_servico'], inplace=True)
-    unique_ids = df_full['numero_identificacao'].unique()
+    # Cria uma cópia para evitar SettingWithCopyWarning
+    df_copy = df_full.copy()
+    df_copy['data_servico'] = pd.to_datetime(df_copy['data_servico'], errors='coerce')
+    df_copy = df_copy.dropna(subset=['data_servico'])
+    unique_ids = df_copy['numero_identificacao'].unique()
 
     for ext_id in unique_ids:
-        ext_df = df_full[df_full['numero_identificacao'] == ext_id].sort_values(by='data_servico')
+        ext_df = df_copy[df_copy['numero_identificacao'] == ext_id].sort_values(by='data_servico')
         if ext_df.empty: continue
         
         latest_record = ext_df.iloc[-1]
@@ -41,32 +43,27 @@ def get_consolidated_status_df(df_full):
         if not vencimentos: continue
         
         proximo_vencimento_real = min(vencimentos)
-        
         today_ts = pd.Timestamp(date.today())
         status_atual, cor = "OK", "green"
         if proximo_vencimento_real < today_ts: status_atual = "VENCIDO"; cor = "red"
         elif latest_record.get('aprovado_inspecao') == 'Não': status_atual = "NÃO CONFORME (Aguardando Ação)"; cor = "orange"
 
-     
         status_instalacao = "✅ Instalado" if pd.notna(latest_record.get('latitude')) and pd.notna(latest_record.get('longitude')) else "⚠️ Não Instalado"
         
         consolidated_data.append({
-            'numero_identificacao': ext_id,
-            'numero_selo_inmetro': latest_record.get('numero_selo_inmetro'),
-            'tipo_agente': latest_record.get('tipo_agente'),
-            'status_atual': status_atual,
+            'numero_identificacao': ext_id, 'numero_selo_inmetro': latest_record.get('numero_selo_inmetro'),
+            'tipo_agente': latest_record.get('tipo_agente'), 'status_atual': status_atual,
             'proximo_vencimento_geral': proximo_vencimento_real.strftime('%d/%m/%Y'),
             'prox_venc_inspecao': next_insp.strftime('%d/%m/%Y') if pd.notna(next_insp) else "N/A",
             'prox_venc_maint2': next_maint2.strftime('%d/%m/%Y') if pd.notna(next_maint2) else "N/A",
             'prox_venc_maint3': next_maint3.strftime('%d/%m/%Y') if pd.notna(next_maint3) else "N/A",
-            'plano_de_acao': latest_record.get('plano_de_acao'),
-            'cor': cor,
-            'status_instalacao': status_instalacao # Adiciona o novo campo
+            'plano_de_acao': latest_record.get('plano_de_acao'), 'cor': cor,
+            'status_instalacao': status_instalacao
         })
     return pd.DataFrame(consolidated_data)
     
 @st.dialog("Registrar Ação Corretiva")
-def action_form(item, df_full):
+def action_form(item, df_full_history):
     st.write(f"**Equipamento ID:** `{item['numero_identificacao']}`")
     st.write(f"**Problema Identificado:** `{item['plano_de_acao']}`")
     
@@ -77,16 +74,11 @@ def action_form(item, df_full):
         if not acao_realizada:
             st.error("Por favor, descreva a ação realizada.")
         else:
-            action_details = {
-                'acao_realizada': acao_realizada,
-                'responsavel_acao': responsavel_acao
-            }
-            # Precisamos do registro completo mais recente para copiar os dados
-            original_record = df_full[df_full['numero_identificacao'] == item['numero_identificacao']].sort_values('data_servico').iloc[-1].to_dict()
-            
+            action_details = {'acao_realizada': acao_realizada, 'responsavel_acao': responsavel_acao}
+            # Pega o registro original mais recente do histórico completo
+            original_record = df_full_history[df_full_history['numero_identificacao'] == item['numero_identificacao']].sort_values('data_servico').iloc[-1].to_dict()
             if save_corrective_action(original_record, action_details, get_user_display_name()):
-                st.success("Ação corretiva registrada com sucesso!")
-                st.rerun()
+                st.success("Ação corretiva registrada com sucesso!"); st.rerun()
             else:
                 st.error("Falha ao registrar a ação.")
 
@@ -116,10 +108,10 @@ def show_dashboard_page():
         if filtered_df.empty:
             st.info("Nenhum item corresponde ao filtro selecionado.")
         else:
+            # --- LÓGICA DE EXIBIÇÃO CORRIGIDA ---
             for index, row in filtered_df.iterrows():
                 status_icon = "🟢" if row['status_atual'] == 'OK' else ('🔴' if row['status_atual'] == 'VENCIDO' else '🟠')
                 
-                # --- EXIBIÇÃO DO NOVO STATUS NO TÍTULO DO EXPANDER ---
                 expander_title = f"{status_icon} **ID:** {row['numero_identificacao']} | **Tipo:** {row['tipo_agente']} | **Status:** {row['status_atual']} | **Localização:** {row['status_instalacao']}"
                 
                 with st.expander(expander_title):
@@ -127,37 +119,21 @@ def show_dashboard_page():
                     st.markdown("---")
                     st.subheader("Próximos Vencimentos:")
                     
-                    col1, col2, col3 = st.columns(3)
-                    col1.metric("Inspeção Mensal", value=row['prox_venc_inspecao'])
-                    col2.metric("Manutenção Nível 2", value=row['prox_venc_maint2'])
-                    col3.metric("Manutenção Nível 3", value=row['prox_venc_maint3'])
+                    col_venc1, col_venc2, col_venc3 = st.columns(3)
+                    col_venc1.metric("Inspeção Mensal", value=row['prox_venc_inspecao'])
+                    col_venc2.metric("Manutenção Nível 2", value=row['prox_venc_maint2'])
+                    col_venc3.metric("Manutenção Nível 3", value=row['prox_venc_maint3'])
 
                     st.caption(f"Último Selo INMETRO registrado: {row['numero_selo_inmetro']}")
-                    st.subheader("Painel de Ações Pendentes")
-                    st.info("Itens que estão vencidos ou não conformes. Clique em 'Registrar Ação' para resolver a pendência.")
                     
-                    actionable_df = dashboard_df[dashboard_df['status_atual'] != 'OK'].copy()
-            
-                    if actionable_df.empty:
-                        st.success("🎉 Todos os extintores estão em conformidade!")
-                    else:
-                        for index, row in actionable_df.iterrows():
-                            status_icon = '🔴' if row['status_atual'] == 'VENCIDO' else '🟠'
-                            with st.container(border=True):
-                                col1, col2 = st.columns([3, 1])
-                                with col1:
-                                    st.markdown(f"**{status_icon} ID:** `{row['numero_identificacao']}` | **Status:** {row['status_atual']}")
-                                    st.caption(f"**Plano Sugerido:** {row['plano_de_acao']} | **Próx. Vencimento:** {row['proximo_vencimento_geral']}")
-                                with col2:
-                                    # O botão agora tem uma chave única para cada item
-                                    if st.button("✍️ Registrar Ação", key=f"action_{row['numero_identificacao']}", use_container_width=True):
-                                        action_form(row, df_full_history)
+                    if row['status_atual'] != 'OK':
+                        st.markdown("---")
+                        if st.button("✍️ Registrar Ação Corretiva", key=f"action_{row['numero_identificacao']}", use_container_width=True):
+                            action_form(row, df_full_history)
 
     with tab_hoses:
         st.header("Dashboard de Mangueiras de Incêndio")
         st.info("Funcionalidade em desenvolvimento.")
-        
-        
 
 # --- Boilerplate de Autenticação ---
 if not show_login_page(): st.stop()

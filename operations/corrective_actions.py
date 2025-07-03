@@ -39,9 +39,11 @@ def save_corrective_action(original_record, action_details, user_name):
         log_row = [
             date.today().isoformat(),
             original_record.get('numero_identificacao'),
-            original_record.get('plano_de_acao'), # Problema original
+            original_record.get('plano_de_acao'), 
             action_details['acao_realizada'],
             action_details['responsavel_acao']
+            action_details.get('id_substituto') 
+    
         ]
         
         uploader = GoogleDriveUploader()

@@ -20,7 +20,6 @@ from operations.corrective_actions import save_corrective_action
 set_page_config()
 
 def get_consolidated_status_df(df_full):
-    # (Sua função, sem alterações)
     if df_full.empty: return pd.DataFrame()
     consolidated_data = []
     df_copy = df_full.copy()
@@ -47,8 +46,10 @@ def get_consolidated_status_df(df_full):
         consolidated_data.append({'numero_identificacao': ext_id, 'numero_selo_inmetro': latest_record.get('numero_selo_inmetro'), 'tipo_agente': latest_record.get('tipo_agente'), 'status_atual': status_atual, 'proximo_vencimento_geral': proximo_vencimento_real.strftime('%d/%m/%Y'), 'prox_venc_inspecao': next_insp.strftime('%d/%m/%Y') if pd.notna(next_insp) else "N/A", 'prox_venc_maint2': next_maint2.strftime('%d/%m/%Y') if pd.notna(next_maint2) else "N/A", 'prox_venc_maint3': next_maint3.strftime('%d/%m/%Y') if pd.notna(next_maint3) else "N/A", 'plano_de_acao': latest_record.get('plano_de_acao'), 'cor': cor, 'status_instalacao': status_instalacao})
     return pd.DataFrame(consolidated_data)
     
+# Dentro de pages/3_Situacao_Atual.py
+
 @st.dialog("Registrar Ação Corretiva")
-def action_form(item, df_full_history, location):
+def action_form(item, df_full_history):
     st.write(f"**Equipamento ID:** `{item['numero_identificacao']}`")
     st.write(f"**Problema Identificado:** `{item['plano_de_acao']}`")
     
@@ -56,34 +57,36 @@ def action_form(item, df_full_history, location):
     responsavel_acao = st.text_input("Responsável pela ação:", value=get_user_display_name())
     
     st.markdown("---")
-    st.write("Se o equipamento foi substituído por outro, informe o ID abaixo:")
     id_substituto = st.text_input("ID do Equipamento Substituto (Opcional)")
-
-    if location:
-        st.info(f"📍 Ação será registrada na localização atual: Lat: {location['latitude']:.5f}")
-    else:
-        st.warning("⚠️ Geolocalização não disponível. A substituição não poderá ser georreferenciada.")
 
     if st.button("Salvar Ação", type="primary"):
         if not acao_realizada:
             st.error("Por favor, descreva a ação realizada.")
-        elif id_substituto and not location:
-            st.error("Erro: A geolocalização é necessária para registrar a substituição.")
         else:
+            substitute_last_record = {}
+            if id_substituto:
+                # Busca o último registro do equipamento substituto
+                from operations.history import find_last_record # Importa a função correta
+                substitute_last_record = find_last_record(df_full_history, id_substituto, 'numero_identificacao') or {}
+                if not substitute_last_record:
+                    st.info(f"Aviso: O equipamento substituto com ID '{id_substituto}' não tem histórico. Será criado um novo registro para ele.")
+
             action_details = {
                 'acao_realizada': acao_realizada,
                 'responsavel_acao': responsavel_acao,
                 'id_substituto': id_substituto if id_substituto else None,
-                'location': location
             }
             
             original_record = df_full_history[df_full_history['numero_identificacao'] == item['numero_identificacao']].sort_values('data_servico').iloc[-1].to_dict()
             
-            if save_corrective_action(original_record, action_details, get_user_display_name()):
+            # Passa ambos os registros para a função de salvamento
+            if save_corrective_action(original_record, substitute_last_record, action_details, get_user_display_name()):
                 st.success("Ação corretiva registrada com sucesso!")
                 st.rerun()
             else:
                 st.error("Falha ao registrar a ação.")
+
+
 
 def show_dashboard_page():
     st.title("Situação Atual dos Equipamentos de Emergência")

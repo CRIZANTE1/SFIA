@@ -12,35 +12,40 @@ pdf_qa = PDFQA()
 
 def generate_action_plan(record):
     """
-    Gera um plano de ação padronizado e mais profissional com base no status e nas observações.
+    Gera um plano de ação padronizado e mais detalhado com base no status e nas observações.
     """
     aprovado = record.get('aprovado_inspecao')
-    observacoes = record.get('observacoes_gerais', '').upper()
+    observacoes = str(record.get('observacoes_gerais', '')).upper()
 
     if aprovado == "Sim":
-        return "Manter equipamento sob rotina de inspeção periódica."
+        return "Manter em monitoramento periódico."
 
     if aprovado == "Não":
-        # Prioriza as não conformidades mais críticas primeiro
-        if "MANÔMETRO" in observacoes:
-            return "AÇÃO IMEDIATA: Recolher extintor para substituição do manômetro e verificação de carga."
-        if "DANO VISÍVEL" in observacoes:
-            return "AÇÃO IMEDIATA: Recolher extintor para avaliação estrutural e possível condenação."
-        if "OBSTRUÇÃO" in observacoes:
-            return "AÇÃO IMEDIATA: Desobstruir e testar o componente (bico/mangueira). Se persistir, recolher."
-        if "LACRE VIOLADO" in observacoes:
-            return "Verificar integridade da carga e substituir o lacre e o pino de segurança."
-        if "PINTURA" in observacoes:
-            return "Programar recolhimento do equipamento para tratamento de superfície e repintura."
-        if "SINALIZAÇÃO" in observacoes:
-            return "Corrigir a sinalização de piso e/ou parede conforme norma ABNT NBR 13434."
+        # Mapeamento de palavras-chave para planos de ação específicos
+        action_map = {
+            "PINTURA": "Programar a repintura corretiva do extintor.",
+            "MANÔMETRO": "Realizar a substituição imediata do manômetro.",
+            "GATILHO": "Realizar a substituição do conjunto de gatilho.",
+            "VÁLVULA": "Verificar e/ou substituir o conjunto da válvula.",
+            "MANGOTE": "Realizar a substituição da mangueira/mangote.",
+            "MANGUEIRA": "Realizar a substituição da mangueira/mangote.",
+            "RECARGA": "Enviar o extintor para o processo de recarga.",
+            "RECARREGANDO": "Enviar o extintor para o processo de recarga.",
+            "LACRE": "Substituir lacre e verificar motivo da violação.",
+            "SINALIZAÇÃO": "Corrigir a sinalização de piso e/ou parede do equipamento.",
+            "SUPORTE": "Verificar e/ou substituir o suporte de parede/piso.",
+            "OBSTRUÇÃO": "Desobstruir o acesso ao equipamento e garantir visibilidade.",
+            "DANO VISÍVEL": "Realizar inspeção detalhada para avaliar a integridade do casco. Se necessário, enviar para teste hidrostático.",
+            "VENCIDO": "Retirar de uso e enviar para manutenção (Nível 2 ou 3) imediatamente."
+        }
+
+        # Itera sobre o mapa de ações e retorna o primeiro plano correspondente
+        for keyword, plan in action_map.items():
+            if keyword in observacoes:
+                return plan
         
-        # Se for uma não conformidade extraída pela IA que não está na lista
-        if observacoes:
-            return f"Analisar e corrigir a não conformidade reportada: {record.get('observacoes_gerais', '')}"
-            
-        # Plano de ação padrão se nenhuma observação específica for fornecida
-        return "Recolher equipamento para análise completa da não conformidade na oficina."
+        # Se nenhuma palavra-chave for encontrada, retorna um plano de ação genérico, mas informativo.
+        return f"Analisar e corrigir a não conformidade reportada: '{record.get('observacoes_gerais', '')}'"
     
     return "N/A" # Caso o status não seja 'Sim' ou 'Não'
 

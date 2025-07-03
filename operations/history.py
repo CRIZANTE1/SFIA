@@ -1,5 +1,3 @@
-# operations/history.py
-
 import streamlit as st
 import pandas as pd
 import sys
@@ -41,3 +39,16 @@ def load_sheet_data(sheet_name):
     except Exception as e:
         st.error(f"Erro ao carregar dados da planilha '{sheet_name}': {e}")
         return pd.DataFrame()
+        
+def find_last_record(df, search_value, column_name):
+    """
+    Função genérica para encontrar o último registro em um DataFrame com base em um valor e coluna.
+    """
+    if df.empty or column_name not in df.columns: return None
+    records = df[df[column_name].astype(str) == str(search_value)].copy()
+    if records.empty: return None
+    # Garante que a data_servico seja do tipo datetime antes de ordenar
+    records['data_servico'] = pd.to_datetime(records['data_servico'], errors='coerce')
+    records.dropna(subset=['data_servico'], inplace=True)
+    if records.empty: return None
+    return records.sort_values(by='data_servico', ascending=False).iloc[0].to_dict()

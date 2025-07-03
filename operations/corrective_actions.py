@@ -41,7 +41,7 @@ def save_corrective_action(original_record, action_details, user_name):
             original_record.get('numero_identificacao'),
             original_record.get('plano_de_acao'), 
             action_details['acao_realizada'],
-            action_details['responsavel_acao']
+            action_details['responsavel_acao'],
             action_details.get('id_substituto') 
     
         ]

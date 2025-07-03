@@ -5,7 +5,7 @@ from dateutil.relativedelta import relativedelta
 import sys
 import os
 import numpy as np
-from streamlit_js_eval import streamlit_js_eval # Importa a biblioteca
+from streamlit_js_eval import streamlit_js_eval
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from operations.history import load_sheet_data
@@ -24,30 +24,47 @@ def get_consolidated_status_df(df_full):
     df_copy['data_servico'] = pd.to_datetime(df_copy['data_servico'], errors='coerce')
     df_copy = df_copy.dropna(subset=['data_servico'])
     unique_ids = df_copy['numero_identificacao'].unique()
+
     for ext_id in unique_ids:
         ext_df = df_copy[df_copy['numero_identificacao'] == ext_id].sort_values(by='data_servico')
         if ext_df.empty: continue
+        
         latest_record = ext_df.iloc[-1]
+        
         last_insp_date = ext_df[ext_df['tipo_servico'] == 'Inspeção']['data_servico'].max()
         last_maint2_date = ext_df[ext_df['tipo_servico'] == 'Manutenção Nível 2']['data_servico'].max()
         last_maint3_date = ext_df[ext_df['tipo_servico'] == 'Manutenção Nível 3']['data_servico'].max()
+        
         next_insp = (last_insp_date + relativedelta(months=1)) if pd.notna(last_insp_date) else pd.NaT
         next_maint2 = (last_maint2_date + relativedelta(months=12)) if pd.notna(last_maint2_date) else pd.NaT
         next_maint3 = (last_maint3_date + relativedelta(years=5)) if pd.notna(last_maint3_date) else pd.NaT
+        
         vencimentos = [d for d in [next_insp, next_maint2, next_maint3] if pd.notna(d)]
         if not vencimentos: continue
+        
         proximo_vencimento_real = min(vencimentos)
-        today_ts = pd.Timestamp(date.today()); status_atual, cor = "OK", "green"
+        
+        today_ts = pd.Timestamp(date.today())
+        status_atual, cor = "OK", "green"
         if proximo_vencimento_real < today_ts: status_atual = "VENCIDO"; cor = "red"
         elif latest_record.get('aprovado_inspecao') == 'Não': status_atual = "NÃO CONFORME (Aguardando Ação)"; cor = "orange"
+
         status_instalacao = "✅ Instalado" if pd.notna(latest_record.get('latitude')) and pd.notna(latest_record.get('longitude')) else "⚠️ Não Instalado"
-        consolidated_data.append({'numero_identificacao': ext_id, 'numero_selo_inmetro': latest_record.get('numero_selo_inmetro'), 'tipo_agente': latest_record.get('tipo_agente'), 'status_atual': status_atual, 'proximo_vencimento_geral': proximo_vencimento_real.strftime('%d/%m/%Y'), 'prox_venc_inspecao': next_insp.strftime('%d/%m/%Y') if pd.notna(next_insp) else "N/A", 'prox_venc_maint2': next_maint2.strftime('%d/%m/%Y') if pd.notna(next_maint2) else "N/A", 'prox_venc_maint3': next_maint3.strftime('%d/%m/%Y') if pd.notna(next_maint3) else "N/A", 'plano_de_acao': latest_record.get('plano_de_acao'), 'cor': cor, 'status_instalacao': status_instalacao})
+        
+        consolidated_data.append({
+            'numero_identificacao': ext_id, 'numero_selo_inmetro': latest_record.get('numero_selo_inmetro'),
+            'tipo_agente': latest_record.get('tipo_agente'), 'status_atual': status_atual,
+            'proximo_vencimento_geral': proximo_vencimento_real.strftime('%d/%m/%Y'),
+            'prox_venc_inspecao': next_insp.strftime('%d/%m/%Y') if pd.notna(next_insp) else "N/A",
+            'prox_venc_maint2': next_maint2.strftime('%d/%m/%Y') if pd.notna(next_maint2) else "N/A",
+            'prox_venc_maint3': next_maint3.strftime('%d/%m/%Y') if pd.notna(next_maint3) else "N/A",
+            'plano_de_acao': latest_record.get('plano_de_acao'), 'cor': cor,
+            'status_instalacao': status_instalacao
+        })
     return pd.DataFrame(consolidated_data)
     
-# Dentro de pages/3_Situacao_Atual.py
-
 @st.dialog("Registrar Ação Corretiva")
-def action_form(item, df_full_history):
+def action_form(item, df_full_history, location):
     st.write(f"**Equipamento ID:** `{item['numero_identificacao']}`")
     st.write(f"**Problema Identificado:** `{item['plano_de_acao']}`")
     
@@ -57,40 +74,45 @@ def action_form(item, df_full_history):
     st.markdown("---")
     id_substituto = st.text_input("ID do Equipamento Substituto (Opcional)")
 
+    if id_substituto:
+        st.info("Ao substituir um equipamento, a localização do antigo será usada para o novo.")
+    
     if st.button("Salvar Ação", type="primary"):
         if not acao_realizada:
             st.error("Por favor, descreva a ação realizada.")
         else:
+            # Busca o histórico do equipamento substituto, se aplicável
             substitute_last_record = {}
             if id_substituto:
-                # Busca o último registro do equipamento substituto
-                from operations.history import find_last_record # Importa a função correta
+                from operations.history import find_last_record # Importação local para esta função
                 substitute_last_record = find_last_record(df_full_history, id_substituto, 'numero_identificacao') or {}
                 if not substitute_last_record:
-                    st.info(f"Aviso: O equipamento substituto com ID '{id_substituto}' não tem histórico. Será criado um novo registro para ele.")
+                    st.info(f"Aviso: O equipamento substituto com ID '{id_substituto}' não tem histórico. Um novo registro será criado.")
 
+            # Monta os detalhes da ação
             action_details = {
                 'acao_realizada': acao_realizada,
                 'responsavel_acao': responsavel_acao,
                 'id_substituto': id_substituto if id_substituto else None,
+                'location': location # Passa a localização atual do inspetor
             }
             
+            # Pega o registro original completo
             original_record = df_full_history[df_full_history['numero_identificacao'] == item['numero_identificacao']].sort_values('data_servico').iloc[-1].to_dict()
             
-            # Passa ambos os registros para a função de salvamento
+            # --- CORREÇÃO DA CHAMADA DA FUNÇÃO ---
+            # Passa os 4 argumentos necessários
             if save_corrective_action(original_record, substitute_last_record, action_details, get_user_display_name()):
                 st.success("Ação corretiva registrada com sucesso!")
                 st.rerun()
             else:
                 st.error("Falha ao registrar a ação.")
 
-
-
 def show_dashboard_page():
     st.title("Situação Atual dos Equipamentos de Emergência")
     tab_extinguishers, tab_hoses = st.tabs(["🔥 Extintores", "💧 Mangueiras (em breve)"])
 
-    # Captura a geolocalização uma vez quando a página carrega
+    # Captura a geolocalização uma vez
     location = streamlit_js_eval(js_expressions="""
         new Promise(function(resolve, reject) {
             navigator.geolocation.getCurrentPosition(
@@ -114,7 +136,7 @@ def show_dashboard_page():
         status_counts = dashboard_df['status_atual'].value_counts()
         col1, col2, col3, col4 = st.columns(4); col1.metric("✅ Total", len(dashboard_df)); col2.metric("🟢 OK", status_counts.get("OK", 0)); col3.metric("🔴 VENCIDO", status_counts.get("VENCIDO", 0)); col4.metric("🟠 NÃO CONFORME", status_counts.get("NÃO CONFORME (Aguardando Ação)", 0)); st.markdown("---")
         
-        status_filter = st.multiselect("Filtrar por Status:", options=dashboard_df['status_atual'].unique(), default=dashboard_df['status_atual'].unique())
+        status_filter = st.multiselect("Filtrar por Status:", options=sorted(dashboard_df['status_atual'].unique()), default=sorted(dashboard_df['status_atual'].unique()))
         filtered_df = dashboard_df[dashboard_df['status_atual'].isin(status_filter)]
         
         st.subheader("Lista de Equipamentos")
@@ -139,12 +161,10 @@ def show_dashboard_page():
 
                     st.caption(f"Último Selo INMETRO registrado: {row['numero_selo_inmetro']}")
                     
-                    # O botão de ação só aparece se o status não for "OK"
                     if row['status_atual'] != 'OK':
                         st.markdown("---")
                         if st.button("✍️ Registrar Ação Corretiva", key=f"action_{row['numero_identificacao']}", use_container_width=True):
-                            # Passa a localização capturada para o formulário
-                            action_form(row, df_full_history, location)
+                            action_form(row.to_dict(), df_full_history, location)
 
     with tab_hoses:
         st.header("Dashboard de Mangueiras de Incêndio")

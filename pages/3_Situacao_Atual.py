@@ -63,7 +63,7 @@ def get_consolidated_status_df(df_full):
     return pd.DataFrame(consolidated_data)
     
 @st.dialog("Registrar Ação Corretiva")
-def action_form(item, df_full_history):
+def action_form(item, df_full_history, location):
     st.write(f"**Equipamento ID:** `{item['numero_identificacao']}`")
     st.write(f"**Problema Identificado:** `{item['plano_de_acao']}`")
     
@@ -74,14 +74,22 @@ def action_form(item, df_full_history):
     st.write("Se o equipamento foi substituído por outro, informe o ID abaixo:")
     id_substituto = st.text_input("ID do Equipamento Substituto (Opcional)")
 
+    if location:
+        st.info(f"📍 Ação será registrada na localização atual: Lat: {location['latitude']:.5f}")
+    else:
+        st.warning("⚠️ Geolocalização não disponível. A substituição não poderá ser georreferenciada.")
+
     if st.button("Salvar Ação", type="primary"):
         if not acao_realizada:
             st.error("Por favor, descreva a ação realizada.")
+        elif id_substituto and not location:
+            st.error("Erro: A geolocalização é necessária para registrar a substituição.")
         else:
             action_details = {
                 'acao_realizada': acao_realizada,
                 'responsavel_acao': responsavel_acao,
-                'id_substituto': id_substituto if id_substituto else None
+                'id_substituto': id_substituto if id_substituto else None,
+                'location': location
             }
             
             original_record = df_full_history[df_full_history['numero_identificacao'] == item['numero_identificacao']].sort_values('data_servico').iloc[-1].to_dict()
@@ -95,6 +103,16 @@ def action_form(item, df_full_history):
 def show_dashboard_page():
     st.title("Situação Atual dos Equipamentos de Emergência")
     tab_extinguishers, tab_hoses = st.tabs(["🔥 Extintores", "💧 Mangueiras (em breve)"])
+
+    # Captura a geolocalização uma vez quando a página carrega
+    location = streamlit_js_eval(js_expressions="""
+        new Promise(function(resolve, reject) {
+            navigator.geolocation.getCurrentPosition(
+                function(position) { resolve({ latitude: position.coords.latitude, longitude: position.coords.longitude }); },
+                function(error) { resolve(null); }
+            );
+        });
+    """)
 
     with tab_extinguishers:
         st.header("Dashboard de Extintores")
@@ -118,7 +136,6 @@ def show_dashboard_page():
         if filtered_df.empty:
             st.info("Nenhum item corresponde ao filtro selecionado.")
         else:
-            # --- LÓGICA DE EXIBIÇÃO CORRIGIDA ---
             for index, row in filtered_df.iterrows():
                 status_icon = "🟢" if row['status_atual'] == 'OK' else ('🔴' if row['status_atual'] == 'VENCIDO' else '🟠')
                 
@@ -136,10 +153,13 @@ def show_dashboard_page():
 
                     st.caption(f"Último Selo INMETRO registrado: {row['numero_selo_inmetro']}")
                     
+                    # O botão de ação só aparece se o status não for "OK"
                     if row['status_atual'] != 'OK':
                         st.markdown("---")
                         if st.button("✍️ Registrar Ação Corretiva", key=f"action_{row['numero_identificacao']}", use_container_width=True):
-                            action_form(row, df_full_history)
+                            # Passa a localização capturada para o formulário
+                            action_form(row, df_full_history, location)
+
 
     with tab_hoses:
         st.header("Dashboard de Mangueiras de Incêndio")

@@ -240,14 +240,26 @@ def main_inspection_page():
     
                     # --- LÓGICA DE FORMULÁRIO CORRIGIDA ---
                     st.subheader("Registrar Nova Inspeção (Nível 1)")
-                    
-                    # 1. Widgets de seleção FORA do formulário
-                    status = st.radio("Status:", ["Conforme", "Não Conforme"], horizontal=True, key="qr_status_radio")
+                
+                    status = st.radio("Status do Equipamento:", ["Conforme", "Não Conforme"], horizontal=True, key="qr_status_radio")
                     
                     issues = []
                     if status == "Não Conforme":
-                        issue_options = ["Lacre Violado", "Manômetro Fora de Faixa", "Dano Visível", "Obstrução"]
-                        issues = st.multiselect("Selecione as não conformidades:", issue_options, key="qr_issues_multiselect")
+                        # --- ATUALIZAÇÃO DA LISTA DE OPÇÕES AQUI ---
+                        issue_options = [
+                            "Lacre Violado", 
+                            "Manômetro Fora de Faixa", 
+                            "Dano Visível", 
+                            "Obstrução", 
+                            "Sinalização Inadequada", 
+                            "Suporte Danificado/Faltando",  
+                            "Pintura Danificada"    
+                        ]
+                        issues = st.multiselect(
+                            "Selecione as não conformidades:", 
+                            issue_options, 
+                            key="qr_issues_multiselect"
+                        )
                     
                     # 2. Formulário contém apenas o botão de submissão
                     with st.form("quick_inspection_form"):

@@ -14,19 +14,26 @@ set_page_config()
 
 
 def get_latest_locations(df_full):
-    # Correção de avisos do Pandas
-    if df_full.empty: return pd.DataFrame()
-    if 'latitude' not in df_full.columns or 'longitude' not in df_full.columns:
-        st.warning("Colunas 'latitude' ou 'longitude' não encontradas."); return pd.DataFrame()
-        
-    df_full['latitude'] = pd.to_numeric(df_full['latitude'].astype(str).str.replace(',', '.'), errors='coerce')
-    df_full['longitude'] = pd.to_numeric(df_full['longitude'].astype(str).str.replace(',', '.'), errors='coerce')
-    df_full = df_full.dropna(subset=['latitude', 'longitude'])
     if df_full.empty: return pd.DataFrame()
 
-    df_full['data_servico'] = pd.to_datetime(df_full['data_servico'], errors='coerce')
-    df_full = df_full.dropna(subset=['data_servico'])
-    return df_full.sort_values('data_servico').drop_duplicates(subset='numero_identificacao', keep='last')
+    # Cria uma cópia explícita para trabalhar com segurança
+    df = df_full.copy()
+
+    if 'latitude' not in df.columns or 'longitude' not in df.columns:
+        return pd.DataFrame()
+        
+    df['latitude'] = pd.to_numeric(df['latitude'].astype(str).str.replace(',', '.'), errors='coerce')
+    df['longitude'] = pd.to_numeric(df['longitude'].astype(str).str.replace(',', '.'), errors='coerce')
+    
+    # Reatribui em vez de usar inplace=True
+    df = df.dropna(subset=['latitude', 'longitude'])
+
+    if df.empty: return pd.DataFrame()
+        
+    df['data_servico'] = pd.to_datetime(df['data_servico'], errors='coerce')
+    df = df.dropna(subset=['data_servico'])
+
+    return df.sort_values('data_servico').drop_duplicates(subset='numero_identificacao', keep='last')
 
 def assign_visual_properties(df):
     """

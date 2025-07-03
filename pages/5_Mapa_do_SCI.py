@@ -57,7 +57,7 @@ def assign_visual_properties(df):
         return default_color
     df_copy['color'] = df_copy['tipo_agente'].apply(get_color)
     df_copy['capacidade_num'] = pd.to_numeric(df_copy['capacidade'].astype(str).str.extract(r'(\d+\.?\d*)')[0], errors='coerce').fillna(1)
-    df_copy['size'] = 20 + (df_copy['capacidade_num'] * 5)
+    df_copy['size'] = 0.3 + (df_copy['capacidade_num'] * 0.1)
     return df_copy
 
 def show_map_page():

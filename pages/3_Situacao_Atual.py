@@ -8,12 +8,13 @@ import numpy as np
 from streamlit_js_eval import streamlit_js_eval
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from operations.history import load_sheet_data
+from operations.history import load_sheet_data, find_last_record
 from auth.login_page import show_login_page, show_user_header, show_logout_button
 from auth.auth_utils import is_admin_user, get_user_display_name
 from operations.demo_page import show_demo_page
 from config.page_config import set_page_config 
 from operations.corrective_actions import save_corrective_action
+ 
 
 set_page_config()
 

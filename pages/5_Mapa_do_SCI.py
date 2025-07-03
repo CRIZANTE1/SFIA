@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import sys
 import os
 
@@ -12,58 +13,52 @@ from config.page_config import set_page_config
 
 set_page_config()
 
-
 def get_latest_locations(df_full):
+    """
+    Processa o histórico para obter a localização mais recente de cada equipamento
+    que ESTÁ ATUALMENTE instalado (tem coordenadas).
+    """
     if df_full.empty: return pd.DataFrame()
 
-    # Cria uma cópia explícita para trabalhar com segurança
     df = df_full.copy()
-
-    if 'latitude' not in df.columns or 'longitude' not in df.columns:
-        return pd.DataFrame()
-        
-    df['latitude'] = pd.to_numeric(df['latitude'].astype(str).str.replace(',', '.'), errors='coerce')
-    df['longitude'] = pd.to_numeric(df['longitude'].astype(str).str.replace(',', '.'), errors='coerce')
     
-    # Reatribui em vez de usar inplace=True
-    df = df.dropna(subset=['latitude', 'longitude'])
-
-    if df.empty: return pd.DataFrame()
-        
     df['data_servico'] = pd.to_datetime(df['data_servico'], errors='coerce')
     df = df.dropna(subset=['data_servico'])
-
-    return df.sort_values('data_servico').drop_duplicates(subset='numero_identificacao', keep='last')
+    
+    # 1. Primeiro, encontra o registro mais recente para CADA equipamento único
+    latest_records_df = df.sort_values('data_servico').drop_duplicates(
+        subset='numero_identificacao', 
+        keep='last'
+    )
+    
+    # 2. Agora, a partir dessa lista, remove os que não têm localização válida
+    if 'latitude' not in latest_records_df.columns or 'longitude' not in latest_records_df.columns:
+        return pd.DataFrame()
+        
+    latest_records_df['latitude'] = pd.to_numeric(latest_records_df['latitude'].astype(str).str.replace(',', '.'), errors='coerce')
+    latest_records_df['longitude'] = pd.to_numeric(latest_records_df['longitude'].astype(str).str.replace(',', '.'), errors='coerce')
+    
+    located_df = latest_records_df.dropna(subset=['latitude', 'longitude'])
+    
+    return located_df
 
 def assign_visual_properties(df):
     """
     Cria colunas de 'size' e 'color' com base nos dados do equipamento.
     """
-    # 1. Definir Cores por Tipo de Agente
-    color_map = {
-        'ABC': [255, 255, 0, 160], 'BC': [0, 100, 255, 160],
-        'CO2': [128, 128, 128, 160], 'Água': [0, 255, 255, 160],
-        'Espuma': [0, 200, 0, 160],
-    }
-    default_color = [255, 75, 75, 160]
-
-  
-    # Função auxiliar para garantir que o tipo de retorno seja uma lista Python
+    df_copy = df.copy()
+    color_map = {'ABC': [255, 255, 0, 160], 'BC': [0, 100, 255, 160], 'CO2': [128, 128, 128, 160], 'Água': [0, 255, 255, 160], 'Espuma': [0, 200, 0, 160]}
+    default_color = [255, 0, 0, 180]
     def get_color(agent_type):
         agent_type_str = str(agent_type).upper()
         for key, color in color_map.items():
             if key in agent_type_str:
                 return color
         return default_color
-    
-    # Usa .apply() para criar a coluna de cores de forma robusta
-    df['color'] = df['tipo_agente'].apply(get_color)
-    
-    # 2. Definir Tamanho por Capacidade
-    df['capacidade_num'] = pd.to_numeric(df['capacidade'].astype(str).str.extract(r'(\d+\.?\d*)')[0], errors='coerce').fillna(1)
-    df['size'] = 0.3 + (df['capacidade_num'] * 0.1)
-    
-    return df
+    df_copy['color'] = df_copy['tipo_agente'].apply(get_color)
+    df_copy['capacidade_num'] = pd.to_numeric(df_copy['capacidade'].astype(str).str.extract(r'(\d+\.?\d*)')[0], errors='coerce').fillna(1)
+    df_copy['size'] = 20 + (df_copy['capacidade_num'] * 5)
+    return df_copy
 
 def show_map_page():
     st.title("🗺️ Mapa do Sistema de Combate a Incêndio (SCI)")
@@ -83,39 +78,28 @@ def show_map_page():
             locations_df = get_latest_locations(df_history)
 
         if locations_df.empty:
-            st.warning("Nenhum extintor com dados de geolocalização válidos."); return
+            st.warning("Nenhum extintor com dados de geolocalização válidos foi encontrado.")
+            # Mesmo sem localizações, a tabela de detalhes ainda pode ser exibida
+        else:
+            locations_df = assign_visual_properties(locations_df)
+            st.success(f"Exibindo a localização de **{len(locations_df)}** extintores no mapa.")
+            map_data = locations_df.rename(columns={'latitude': 'lat', 'longitude': 'lon'})
+            st.map(map_data, zoom=16, size='size', color='color')
 
-        locations_df = assign_visual_properties(locations_df)
-        
-        st.success(f"Exibindo a localização de **{len(locations_df)}** extintores.")
-        
-        map_data = locations_df.rename(columns={'latitude': 'lat', 'longitude': 'lon'})
-        
-        # A chamada ao st.map agora funcionará corretamente
-        st.map(map_data, zoom=16, size='size', color='color')
-
-        with st.expander("Ver detalhes e legenda"):
-            st.markdown("**Legenda de Cores:**")
-            st.markdown("""
-                - <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background-color:rgba(255,255,0,0.8);"></span> Pó Químico ABC
-                - <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background-color:rgba(0,100,255,0.8);"></span> Pó Químico BC
-                - <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background-color:rgba(128,128,128,0.8);"></span> Dióxido de Carbono (CO2)
-                - <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background-color:rgba(0,255,255,0.8);"></span> Água
-                - <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background-color:rgba(0,200,0,0.8);"></span> Espuma
-                - <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background-color:rgba(255,75,75,0.8);"></span> Outros
-            """, unsafe_allow_html=True)
-            st.markdown("---")
-            
-            st.dataframe(
-                locations_df[[
-                    'numero_identificacao', 'numero_selo_inmetro', 'tipo_agente', 
-                    'capacidade', 'latitude', 'longitude'
-                ]].rename(columns={
-                    'numero_identificacao': 'ID do Equipamento', 'numero_selo_inmetro': 'Último Selo',
-                    'tipo_agente': 'Tipo', 'capacidade': 'Capacidade'
-                }),
-                hide_index=True, use_container_width=True
-            )
+        with st.expander("Ver detalhes de todos os equipamentos instalados"):
+            if locations_df.empty:
+                st.info("Nenhum equipamento instalado para exibir.")
+            else:
+                st.dataframe(
+                    locations_df[[
+                        'numero_identificacao', 'numero_selo_inmetro', 'tipo_agente', 
+                        'capacidade', 'latitude', 'longitude'
+                    ]].rename(columns={
+                        'numero_identificacao': 'ID do Equipamento', 'numero_selo_inmetro': 'Último Selo',
+                        'tipo_agente': 'Tipo', 'capacidade': 'Capacidade'
+                    }),
+                    hide_index=True, use_container_width=True
+                )
 
     elif equip_type == "Mangueiras (em breve)":
         st.header("Localização das Mangueiras")

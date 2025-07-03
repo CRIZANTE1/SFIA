@@ -1,5 +1,3 @@
-# FILE: auth/auth_utils.py
-
 import streamlit as st
 from gdrive.gdrive_upload import GoogleDriveUploader
 from gdrive.config import ADMIN_SHEET_NAME
@@ -30,36 +28,27 @@ def get_user_display_name():
     except Exception:
         return "Usuário"
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=600) # Cache para não verificar a planilha a cada interação
 def get_admin_users_by_name():
     """
     Busca a lista de NOMES de administradores da planilha Google.
+    Retorna uma lista de nomes.
     """
     try:
-        st.write("1. Tentando inicializar GoogleDriveUploader...")
         uploader = GoogleDriveUploader()
-        st.write(f"2. Tentando ler dados da aba: '{ADMIN_SHEET_NAME}'")
-        
         admin_data = uploader.get_data_from_sheet(ADMIN_SHEET_NAME)
-        st.write(f"3. Dados recebidos da planilha: {admin_data}") # Vê o que a API retornou
-
         if not admin_data or len(admin_data) < 2:
-            st.warning(f"Aba '{ADMIN_SHEET_NAME}' não encontrada ou vazia na planilha.")
+            st.warning("Aba de administradores não encontrada ou vazia na planilha.")
             return []
         
         df = pd.DataFrame(admin_data[1:], columns=admin_data[0])
-        st.write("4. DataFrame criado com sucesso.")
-
         if 'Nome' in df.columns:
-            admin_list = [str(name).strip() for name in df['Nome'].dropna() if name]
-            st.write(f"5. Lista de administradores encontrada: {admin_list}")
-            return admin_list
+            return [str(name).strip() for name in df['Nome'].dropna() if name]
         else:
-            st.error(f"A aba '{ADMIN_SHEET_NAME}' precisa de uma coluna chamada 'Nome'.")
+            st.error("A aba 'Admins' precisa de uma coluna chamada 'Nome'.")
             return []
     except Exception as e:
         st.error(f"Erro ao buscar lista de administradores: {e}")
-        st.exception(e) # Mostra o traceback completo do erro
         return []
 
 def is_admin_user():
@@ -73,6 +62,7 @@ def is_admin_user():
     admin_list = get_admin_users_by_name()
     # Compara o nome do usuário com a lista de nomes de administradores
     return user_name.strip() in admin_list
+
 
 
 

@@ -14,38 +14,17 @@ from config.page_config import set_page_config
 set_page_config()
 
 def get_latest_locations(df_full):
-    """
-    Processa o histórico para obter a localização mais recente de cada equipamento
-    que ESTÁ ATUALMENTE instalado (tem coordenadas).
-    """
     if df_full.empty: return pd.DataFrame()
-
     df = df_full.copy()
-    
     df['data_servico'] = pd.to_datetime(df['data_servico'], errors='coerce')
     df = df.dropna(subset=['data_servico'])
-    
-    # 1. Primeiro, encontra o registro mais recente para CADA equipamento único
-    latest_records_df = df.sort_values('data_servico').drop_duplicates(
-        subset='numero_identificacao', 
-        keep='last'
-    )
-    
-    # 2. Agora, a partir dessa lista, remove os que não têm localização válida
-    if 'latitude' not in latest_records_df.columns or 'longitude' not in latest_records_df.columns:
-        return pd.DataFrame()
-        
+    latest_records_df = df.sort_values('data_servico').drop_duplicates(subset='numero_identificacao', keep='last')
+    if 'latitude' not in latest_records_df.columns or 'longitude' not in latest_records_df.columns: return pd.DataFrame()
     latest_records_df['latitude'] = pd.to_numeric(latest_records_df['latitude'].astype(str).str.replace(',', '.'), errors='coerce')
     latest_records_df['longitude'] = pd.to_numeric(latest_records_df['longitude'].astype(str).str.replace(',', '.'), errors='coerce')
-    
-    located_df = latest_records_df.dropna(subset=['latitude', 'longitude'])
-    
-    return located_df
+    return latest_records_df.dropna(subset=['latitude', 'longitude'])
 
 def assign_visual_properties(df):
-    """
-    Cria colunas de 'size' e 'color' com base nos dados do equipamento.
-    """
     df_copy = df.copy()
     color_map = {'ABC': [255, 255, 0, 160], 'BC': [0, 100, 255, 160], 'CO2': [128, 128, 128, 160], 'Água': [0, 255, 255, 160], 'Espuma': [0, 200, 0, 160]}
     default_color = [255, 0, 0, 180]
@@ -77,21 +56,33 @@ def show_map_page():
         with st.spinner("Processando localizações..."):
             locations_df = get_latest_locations(df_history)
 
-        if locations_df.empty:
-            st.warning("Nenhum extintor com dados de geolocalização válidos foi encontrado.")
-            # Mesmo sem localizações, a tabela de detalhes ainda pode ser exibida
-        else:
+        if not locations_df.empty:
             locations_df = assign_visual_properties(locations_df)
             st.success(f"Exibindo a localização de **{len(locations_df)}** extintores no mapa.")
             map_data = locations_df.rename(columns={'latitude': 'lat', 'longitude': 'lon'})
             st.map(map_data, zoom=16, size='size', color='color')
+        else:
+            st.warning("Nenhum extintor com dados de geolocalização válidos foi encontrado.")
 
         with st.expander("Ver detalhes de todos os equipamentos instalados"):
-            if locations_df.empty:
-                st.info("Nenhum equipamento instalado para exibir.")
+            # --- LEGENDA DE CORES REINTRODUZIDA AQUI ---
+            st.markdown("**Legenda de Cores:**")
+            st.markdown("""
+                - <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background-color:rgba(255,255,0,0.8);"></span> Pó Químico ABC
+                - <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background-color:rgba(0,100,255,0.8);"></span> Pó Químico BC
+                - <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background-color:rgba(128,128,128,0.8);"></span> Dióxido de Carbono (CO2)
+                - <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background-color:rgba(0,255,255,0.8);"></span> Água
+                - <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background-color:rgba(0,200,0,0.8);"></span> Espuma
+                - <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background-color:rgba(255,0,0,0.8);"></span> Outros
+            """, unsafe_allow_html=True)
+            st.markdown("---")
+
+            all_latest_df = df_history.sort_values('data_servico').drop_duplicates(subset='numero_identificacao', keep='last')
+            if all_latest_df.empty:
+                st.info("Nenhum equipamento registrado para exibir detalhes.")
             else:
                 st.dataframe(
-                    locations_df[[
+                    all_latest_df[[
                         'numero_identificacao', 'numero_selo_inmetro', 'tipo_agente', 
                         'capacidade', 'latitude', 'longitude'
                     ]].rename(columns={

@@ -101,7 +101,7 @@ def main_inspection_page():
             is_location_ok = False
             if location:
                 accuracy = location.get('accuracy', 999)
-                PRECISION_THRESHOLD = 30 
+                PRECISION_THRESHOLD = 15 
                 if accuracy <= PRECISION_THRESHOLD:
                     st.success(f"📍 Localização pronta! (Precisão: {accuracy:.1f} metros)")
                     is_location_ok = True

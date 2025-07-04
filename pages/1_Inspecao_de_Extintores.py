@@ -11,7 +11,7 @@ from operations.extinguisher_operations import (
 )
 from operations.history import load_sheet_data
 # Importa as funções de utilidade dos módulos corretos
-from operations.qr_inspection_utils import decode_qr_from_image, find_last_record
+from operations.qr_inspection_utils import decode_qr_from_image, find_last_record_from_history
 from gdrive.gdrive_upload import GoogleDriveUploader
 from auth.login_page import show_login_page, show_user_header, show_logout_button
 from auth.auth_utils import is_admin_user, get_user_display_name

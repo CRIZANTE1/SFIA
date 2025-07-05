@@ -16,26 +16,45 @@ from config.page_config import set_page_config
 from operations.corrective_actions import save_corrective_action
 from operations.photo_operations import upload_evidence_photo
 
-
 set_page_config()
 
-def get_consolidated_status_df(df_full):
-    if df_full.empty: return pd.DataFrame()
+def get_consolidated_status_df(df_full, df_locais):
+    if df_full.empty: 
+        return pd.DataFrame()
+    
     consolidated_data = []
     df_copy = df_full.copy()
     df_copy['data_servico'] = pd.to_datetime(df_copy['data_servico'], errors='coerce')
     df_copy = df_copy.dropna(subset=['data_servico'])
-    unique_ids = df_copy['numero_identificacao'].unique()
+    
+    # Pega o último registro de cada extintor do histórico
+    latest_records_df = df_copy.sort_values('data_servico').drop_duplicates(subset='numero_identificacao', keep='last')
 
-    for ext_id in unique_ids:
-        ext_df = df_copy[df_copy['numero_identificacao'] == ext_id].sort_values(by='data_servico')
-        if ext_df.empty: continue
+    latest_records_df['numero_identificacao'] = latest_records_df['numero_identificacao'].astype(str)
+    if not df_locais.empty:
+        # Renomeia a coluna 'id' para 'numero_identificacao' para a mesclagem
+        df_locais = df_locais.rename(columns={'id': 'numero_identificacao'})
+        df_locais['numero_identificacao'] = df_locais['numero_identificacao'].astype(str)
+        # Usa um 'left' merge para manter todos os extintores do histórico
+        merged_df = pd.merge(latest_records_df, df_locais[['numero_identificacao', 'local']], on='numero_identificacao', how='left')
+    else:
+        # Se a planilha de locais estiver vazia, cria as colunas vazias para evitar erros
+        merged_df = latest_records_df
+        merged_df['local'] = np.nan
+
+    # Itera sobre o DataFrame mesclado
+    for index, latest_record in merged_df.iterrows():
+        ext_id = latest_record['numero_identificacao']
+        ext_df_history = df_copy[df_copy['numero_identificacao'] == ext_id]
+
+        # Lógica de cálculo de vencimento
+        last_insp_date_record = ext_df_history[ext_df_history['tipo_servico'].isin(['Inspeção', 'Substituição'])]
+        last_maint2_date_record = ext_df_history[ext_df_history['tipo_servico'] == 'Manutenção Nível 2']
+        last_maint3_date_record = ext_df_history[ext_df_history['tipo_servico'] == 'Manutenção Nível 3']
         
-        latest_record = ext_df.iloc[-1]
-        
-        last_insp_date = ext_df[ext_df['tipo_servico'] == 'Inspeção']['data_servico'].max()
-        last_maint2_date = ext_df[ext_df['tipo_servico'] == 'Manutenção Nível 2']['data_servico'].max()
-        last_maint3_date = ext_df[ext_df['tipo_servico'] == 'Manutenção Nível 3']['data_servico'].max()
+        last_insp_date = last_insp_date_record['data_servico'].max() if not last_insp_date_record.empty else pd.NaT
+        last_maint2_date = last_maint2_date_record['data_servico'].max() if not last_maint2_date_record.empty else pd.NaT
+        last_maint3_date = last_maint3_date_record['data_servico'].max() if not last_maint3_date_record.empty else pd.NaT
         
         next_insp = (last_insp_date + relativedelta(months=1)) if pd.notna(last_insp_date) else pd.NaT
         next_maint2 = (last_maint2_date + relativedelta(months=12)) if pd.notna(last_maint2_date) else pd.NaT
@@ -47,21 +66,35 @@ def get_consolidated_status_df(df_full):
         proximo_vencimento_real = min(vencimentos)
         
         today_ts = pd.Timestamp(date.today())
-        status_atual, cor = "OK", "green"
-        if proximo_vencimento_real < today_ts: status_atual = "VENCIDO"; cor = "red"
-        elif latest_record.get('aprovado_inspecao') == 'Não': status_atual = "NÃO CONFORME (Aguardando Ação)"; cor = "orange"
+        status_atual = "OK"
+        if latest_record.get('plano_de_acao') == "FORA DE OPERAÇÃO (SUBSTITUÍDO)":
+            status_atual = "FORA DE OPERAÇÃO"
+        elif proximo_vencimento_real < today_ts: 
+            status_atual = "VENCIDO"
+        elif latest_record.get('aprovado_inspecao') == 'Não': 
+            status_atual = "NÃO CONFORME (Aguardando Ação)"
 
-        status_instalacao = "✅ Instalado" if pd.notna(latest_record.get('latitude')) and pd.notna(latest_record.get('longitude')) else "⚠️ Não Instalado"
-        
+        if status_atual == "FORA DE OPERAÇÃO":
+            continue
+
+        # Define o texto da localização com base na nova coluna 'local'
+        local_definido = latest_record.get('local')
+        if pd.notna(local_definido) and str(local_definido).strip() != '':
+            status_instalacao = f"✅ {local_definido}"
+        else:
+            status_instalacao = "⚠️ Local não definido"
+
         consolidated_data.append({
-            'numero_identificacao': ext_id, 'numero_selo_inmetro': latest_record.get('numero_selo_inmetro'),
-            'tipo_agente': latest_record.get('tipo_agente'), 'status_atual': status_atual,
+            'numero_identificacao': ext_id,
+            'numero_selo_inmetro': latest_record.get('numero_selo_inmetro'),
+            'tipo_agente': latest_record.get('tipo_agente'),
+            'status_atual': status_atual,
             'proximo_vencimento_geral': proximo_vencimento_real.strftime('%d/%m/%Y'),
             'prox_venc_inspecao': next_insp.strftime('%d/%m/%Y') if pd.notna(next_insp) else "N/A",
             'prox_venc_maint2': next_maint2.strftime('%d/%m/%Y') if pd.notna(next_maint2) else "N/A",
             'prox_venc_maint3': next_maint3.strftime('%d/%m/%Y') if pd.notna(next_maint3) else "N/A",
-            'plano_de_acao': latest_record.get('plano_de_acao'), 'cor': cor,
-            'status_instalacao': status_instalacao
+            'plano_de_acao': latest_record.get('plano_de_acao'),
+            'status_instalacao': status_instalacao 
         })
     return pd.DataFrame(consolidated_data)
     
@@ -87,22 +120,18 @@ def action_form(item, df_full_history, location):
         st.write("**Opção 2: Enviar da Galeria (Qualidade Alta)**")
         gallery_photo = st.file_uploader("Galeria", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key=f"ac_uploader_{item['numero_identificacao']}")
         
-        # Prioriza o upload da galeria se ambos forem usados
         if gallery_photo:
             photo_evidence = gallery_photo
         else:
             photo_evidence = camera_photo
-       
 
     if st.button("Salvar Ação", type="primary"):
-        # Toda a lógica de salvamento agora está dentro deste bloco
         if not acao_realizada:
             st.error("Por favor, descreva a ação realizada.")
             return
 
-        # Validação de localização para substituição
         original_record = find_last_record(df_full_history, item['numero_identificacao'], 'numero_identificacao')
-        if id_substituto and not original_record.get('latitude'):
+        if id_substituto and (pd.isna(original_record.get('latitude')) or pd.isna(original_record.get('longitude'))):
             st.error("Erro: O equipamento original não tem localização registrada, portanto a substituição não pode ser georreferenciada.")
             return
             
@@ -123,21 +152,26 @@ def action_form(item, df_full_history, location):
                 'acao_realizada': acao_realizada,
                 'responsavel_acao': responsavel_acao,
                 'id_substituto': id_substituto if id_substituto else None,
-                'location': location, # Passa a localização do inspetor (pode ser usada se a do original falhar)
+                'location': location,
                 'photo_link': photo_link_evidence
             }
             
             if save_corrective_action(original_record, substitute_last_record, action_details, get_user_display_name()):
                 st.success("Ação corretiva registrada com sucesso!")
+                st.cache_data.clear() 
                 st.rerun()
             else:
                 st.error("Falha ao registrar a ação.")
 
 def show_dashboard_page():
     st.title("Situação Atual dos Equipamentos de Emergência")
+    
+    if st.button("Limpar Cache e Recarregar Dados"):
+        st.cache_data.clear()
+        st.rerun()
+
     tab_extinguishers, tab_hoses = st.tabs(["🔥 Extintores", "💧 Mangueiras (em breve)"])
 
-    # Captura a geolocalização uma vez
     location = streamlit_js_eval(js_expressions="""
         new Promise(function(resolve, reject) {
             navigator.geolocation.getCurrentPosition(
@@ -149,17 +183,28 @@ def show_dashboard_page():
 
     with tab_extinguishers:
         st.header("Dashboard de Extintores")
+        
+        # Carrega os dados da aba 'locais' e 'extintores'
         df_full_history = load_sheet_data("extintores")
+        df_locais = load_sheet_data("locais") 
+
         if df_full_history.empty:
             st.warning("Ainda não há registros para exibir."); return
 
         with st.spinner("Analisando o status de todos os extintores..."):
-            dashboard_df = get_consolidated_status_df(df_full_history)
+            # Passa o DataFrame de locais para a função
+            dashboard_df = get_consolidated_status_df(df_full_history, df_locais)
+        
         if dashboard_df.empty:
-            st.warning("Não foi possível gerar o dashboard."); return
+            st.warning("Não foi possível gerar o dashboard ou não há equipamentos ativos."); return
 
         status_counts = dashboard_df['status_atual'].value_counts()
-        col1, col2, col3, col4 = st.columns(4); col1.metric("✅ Total", len(dashboard_df)); col2.metric("🟢 OK", status_counts.get("OK", 0)); col3.metric("🔴 VENCIDO", status_counts.get("VENCIDO", 0)); col4.metric("🟠 NÃO CONFORME", status_counts.get("NÃO CONFORME (Aguardando Ação)", 0)); st.markdown("---")
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("✅ Total Ativo", len(dashboard_df))
+        col2.metric("🟢 OK", status_counts.get("OK", 0))
+        col3.metric("🔴 VENCIDO", status_counts.get("VENCIDO", 0))
+        col4.metric("🟠 NÃO CONFORME", status_counts.get("NÃO CONFORME (Aguardando Ação)", 0))
+        st.markdown("---")
         
         status_filter = st.multiselect("Filtrar por Status:", options=sorted(dashboard_df['status_atual'].unique()), default=sorted(dashboard_df['status_atual'].unique()))
         filtered_df = dashboard_df[dashboard_df['status_atual'].isin(status_filter)]
@@ -172,6 +217,7 @@ def show_dashboard_page():
             for index, row in filtered_df.iterrows():
                 status_icon = "🟢" if row['status_atual'] == 'OK' else ('🔴' if row['status_atual'] == 'VENCIDO' else '🟠')
                 
+                # O título do expander agora usa a nova coluna `status_instalacao`
                 expander_title = f"{status_icon} **ID:** {row['numero_identificacao']} | **Tipo:** {row['tipo_agente']} | **Status:** {row['status_atual']} | **Localização:** {row['status_instalacao']}"
                 
                 with st.expander(expander_title):
@@ -184,7 +230,7 @@ def show_dashboard_page():
                     col_venc2.metric("Manutenção Nível 2", value=row['prox_venc_maint2'])
                     col_venc3.metric("Manutenção Nível 3", value=row['prox_venc_maint3'])
 
-                    st.caption(f"Último Selo INMETRO registrado: {row['numero_selo_inmetro']}")
+                    st.caption(f"Último Selo INMETRO registrado: {row.get('numero_selo_inmetro', 'N/A')}")
                     
                     if row['status_atual'] != 'OK':
                         st.markdown("---")

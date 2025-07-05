@@ -107,29 +107,48 @@ def process_extinguisher_pdf(uploaded_file):
             return None
     return None
 
+
 def save_inspection(data):
-    """Salva os dados de UMA inspeção, incluindo as coordenadas de geolocalização."""
-    id_equip = data.get('numero_identificacao', 'N/A')
+    """Salva os dados de UMA inspeção no Google Sheets, garantindo a serialização correta dos dados."""
     
+    # Função auxiliar para converter valores para tipos JSON-safe (string ou None)
+    def to_safe_string(value):
+        if pd.isna(value) or value is None:
+            return None  # Deixa a célula vazia na planilha
+        if isinstance(value, (pd.Timestamp, date)):
+            return value.strftime('%Y-%m-%d') # Converte data/timestamp para string
+        return str(value) # Converte qualquer outra coisa para string
+
+    # Monta a linha de dados, aplicando a conversão em cada item
     data_row = [
-        data.get('numero_identificacao'), data.get('numero_selo_inmetro'),
-        data.get('tipo_agente'), data.get('capacidade'), data.get('marca_fabricante'),
-        data.get('ano_fabricacao'), data.get('tipo_servico'), data.get('data_servico'),
-        data.get('inspetor_responsavel'), data.get('empresa_executante'),
-        data.get('data_proxima_inspecao'), data.get('data_proxima_manutencao_2_nivel'),
-        data.get('data_proxima_manutencao_3_nivel'), data.get('data_ultimo_ensaio_hidrostatico'),
-        data.get('aprovado_inspecao'), data.get('observacoes_gerais'),
-        data.get('plano_de_acao'), data.get('link_relatorio_pdf', None),
-        data.get('latitude', None),  # Adiciona latitude
-        data.get('longitude', None), # Adiciona longitude
-        data.get('link_foto_nao_conformidade', None)
+        to_safe_string(data.get('numero_identificacao')),
+        to_safe_string(data.get('numero_selo_inmetro')),
+        to_safe_string(data.get('tipo_agente')),
+        to_safe_string(data.get('capacidade')),
+        to_safe_string(data.get('marca_fabricante')),
+        to_safe_string(data.get('ano_fabricacao')),
+        to_safe_string(data.get('tipo_servico')),
+        to_safe_string(data.get('data_servico')),
+        to_safe_string(data.get('inspetor_responsavel')),
+        to_safe_string(data.get('empresa_executante')),
+        to_safe_string(data.get('data_proxima_inspecao')),
+        to_safe_string(data.get('data_proxima_manutencao_2_nivel')),
+        to_safe_string(data.get('data_proxima_manutencao_3_nivel')),
+        to_safe_string(data.get('data_ultimo_ensaio_hidrostatico')),
+        to_safe_string(data.get('aprovado_inspecao')),
+        to_safe_string(data.get('observacoes_gerais')),
+        to_safe_string(data.get('plano_de_acao')),
+        to_safe_string(data.get('link_relatorio_pdf')),
+        to_safe_string(data.get('latitude')),
+        to_safe_string(data.get('longitude')),
+        to_safe_string(data.get('link_foto_nao_conformidade'))
     ]
     
-    uploader = GoogleDriveUploader() 
     try:
+        uploader = GoogleDriveUploader()
         uploader.append_data_to_sheet(EXTINGUISHER_SHEET_NAME, data_row)
         return True
     except Exception as e:
-        st.error(f"Erro ao salvar dados do equipamento {id_equip} no Google Sheets: {e}")
+        # Mostra um erro mais detalhado para o usuário
+        st.error(f"Erro ao salvar dados do equipamento {data.get('numero_identificacao')}: {e}")
         return False
-

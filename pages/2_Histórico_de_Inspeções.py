@@ -22,14 +22,11 @@ def format_dataframe_for_display(df, is_log=False):
     df = df.copy()
 
     if is_log:
-        # Formatação específica para o Log de Ações
         if 'data_correcao' in df.columns:
-            # Corrigido para lidar com valores NaT (Not a Time) antes de formatar
             df['data_correcao'] = pd.to_datetime(df['data_correcao'], errors='coerce').dt.strftime('%d/%m/%Y')
         
         if 'link_foto_evidencia' not in df.columns:
             df['link_foto_evidencia'] = None
-        df['link_foto_evidencia'] = df['link_foto_evidencia'].fillna(None)
         
         display_columns = {
             'data_correcao': 'Data da Correção',
@@ -37,10 +34,11 @@ def format_dataframe_for_display(df, is_log=False):
             'problema_original': 'Problema Original',
             'acao_realizada': 'Ação Realizada',
             'responsavel_acao': 'Responsável',
-            'id_equipamento_substituto': 'ID do Equip. Substituto', # <-- CORREÇÃO 1: Vírgula adicionada aqui
+            'id_equipamento_substituto': 'ID do Equip. Substituto',
             'link_foto_evidencia': 'Evidência (Foto)'
         }
     else:
+        # Formatação para o Histórico de Serviços
         if 'link_relatorio_pdf' not in df.columns:
             df['link_relatorio_pdf'] = None
         df['link_relatorio_pdf'] = df['link_relatorio_pdf'].fillna("N/A")
@@ -57,10 +55,8 @@ def format_dataframe_for_display(df, is_log=False):
             'link_relatorio_pdf': 'Relatório (PDF)'
         }
 
-    # Esta parte funciona para ambos os casos, pois `display_columns` já foi definido corretamente
     cols_to_display = [col for col in display_columns.keys() if col in df.columns]
     return df[cols_to_display].rename(columns=display_columns)
-
 def show_history_page():
     st.title("Histórico e Logs do Sistema")
     

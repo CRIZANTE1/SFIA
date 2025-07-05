@@ -49,7 +49,6 @@ def save_corrective_action(original_record, substitute_last_record, action_detai
                 'aprovado_inspecao': "Sim",
                 'observacoes_gerais': f"Instalado em substituição ao ID: {original_record.get('numero_identificacao')}",
                 'link_relatorio_pdf': None,
-                # CORREÇÃO: Usa a localização do equipamento ORIGINAL
                 'latitude': original_record.get('latitude'),
                 'longitude': original_record.get('longitude')
             }
@@ -66,7 +65,6 @@ def save_corrective_action(original_record, substitute_last_record, action_detai
                 'inspetor_responsavel': user_name,
                 'aprovado_inspecao': "Sim",
                 'observacoes_gerais': f"Ação Corretiva Aplicada: {action_details['acao_realizada']}",
-                # Mantém a localização original, pois o equipamento não mudou de lugar
                 'latitude': original_record.get('latitude'), 
                 'longitude': original_record.get('longitude'),
                 'link_relatorio_pdf': None
@@ -82,7 +80,8 @@ def save_corrective_action(original_record, substitute_last_record, action_detai
             original_record.get('plano_de_acao'), 
             action_details['acao_realizada'],
             action_details['responsavel_acao'],
-            action_details.get('id_substituto')
+            action_details.get('id_substituto'),
+            action_details.get('photo_link', None)
         ]
         
         uploader = GoogleDriveUploader()

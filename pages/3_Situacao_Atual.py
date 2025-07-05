@@ -79,16 +79,15 @@ def action_form(item, df_full_history, location):
     st.markdown("---")
     st.write("Opcional: Anexe uma foto como evidência da ação concluída.")
     photo_evidence = None
-    if st.toggle("📷 Anexar foto de evidência da correção"):
-        photo_tab1, photo_tab2 = st.tabs(["Tirar Foto Agora", "Enviar da Galeria"])
-        with photo_tab1:
-            camera_photo = st.camera_input("Câmera", label_visibility="collapsed", key=f"ac_camera_{item['numero_identificacao']}")
-            if camera_photo:
-                photo_evidence = camera_photo
-        with photo_tab2:
-            gallery_photo = st.file_uploader("Galeria", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key=f"ac_uploader_{item['numero_identificacao']}")
-            if gallery_photo:
-                photo_evidence = gallery_photo
+    if st.toggle("📷 Anexar foto de evidência da correção", key=f"toggle_photo_{item['numero_identificacao']}"):
+        camera_photo = st.camera_input(
+            "Tire uma foto da ação concluída", 
+            label_visibility="collapsed", 
+            key=f"ac_camera_{item['numero_identificacao']}"
+        )
+        if camera_photo:
+            photo_evidence = camera_photo
+       
 
     if st.button("Salvar Ação", type="primary"):
         # Toda a lógica de salvamento agora está dentro deste bloco

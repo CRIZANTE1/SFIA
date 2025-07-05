@@ -10,13 +10,13 @@ from operations.extinguisher_operations import (
     process_extinguisher_pdf, calculate_next_dates, save_inspection, generate_action_plan
 )
 from operations.history import load_sheet_data
-# Importa as funções de utilidade dos módulos corretos
 from operations.qr_inspection_utils import decode_qr_from_image, find_last_record_from_history
 from gdrive.gdrive_upload import GoogleDriveUploader
 from auth.login_page import show_login_page, show_user_header, show_logout_button
 from auth.auth_utils import is_admin_user, get_user_display_name
 from operations.demo_page import show_demo_page
 from config.page_config import set_page_config 
+from operations.photo_operations import upload_evidence_photo
 
 set_page_config()
 
@@ -173,49 +173,67 @@ def main_inspection_page():
                 if status == "Não Conforme":
                     issue_options = ["Lacre Violado", "Manômetro Fora de Faixa", "Dano Visível", "Obstrução", "Sinalização Inadequada", "Suporte Danificado/Faltando", "Pintura Danificada"]
                     issues = st.multiselect("Selecione as não conformidades:", issue_options, key="qr_issues_multiselect")
-                
-                with st.form("quick_inspection_form"):
-                    location = st.session_state.location
-                    if location:
-                        accuracy = location.get('accuracy', 999)
-                        st.info(f"📍 Localização a ser registrada (Precisão: {accuracy:.1f}m)")
-                    else:
-                        st.warning("⚠️ Localização não obtida.")
+                    #--- alteração para evidência com foto 05/07/2025 ------------#
+                    st.warning("Opcional: Registre uma foto da não conformidade.")
+                    photo_non_compliance = None
+                    issues = []
+    
+                    if status == "Não Conforme":
+                        issue_options = ["Lacre Violado", "Manômetro Fora de Faixa", "Dano Visível", "Obstrução", "Sinalização Inadequada", "Suporte Danificado/Faltando", "Pintura Danificada"]
+                        issues = st.multiselect("Selecione as não conformidades:", issue_options, key="qr_issues_multiselect")
+                        st.warning("Opcional: Registre uma foto da não conformidade.")
+                        photo_non_compliance = st.camera_input("Foto da Não Conformidade", key="photo_nc")
                     
-                    submitted = st.form_submit_button("✅ Confirmar e Registrar Inspeção", type="primary", disabled=not location)
-                    if submitted:
-                        with st.spinner("Salvando..."):
-                            new_record = last_record.copy()
-                            new_record['numero_selo_inmetro'] = last_record.get('numero_selo_inmetro')
-                            observacoes = "Inspeção de rotina OK." if status == "Conforme" else ", ".join(issues)
-                            temp_plan_record = {'aprovado_inspecao': "Sim" if status == "Conforme" else "Não", 'observacoes_gerais': observacoes}
-                            
-                            new_record.update({
-                                'tipo_servico': "Inspeção",
-                                'data_servico': date.today().isoformat(),
-                                'inspetor_responsavel': get_user_display_name(),
-                                'aprovado_inspecao': temp_plan_record['aprovado_inspecao'],
-                                'observacoes_gerais': temp_plan_record['observacoes_gerais'],
-                                'plano_de_acao': generate_action_plan(temp_plan_record),
-                                'link_relatorio_pdf': None,
-                                'latitude': location['latitude'],
-                                'longitude': location['longitude']
-                            })
-                            new_record.update(calculate_next_dates(new_record['data_servico'], 'Inspeção', new_record.get('tipo_agente')))
-                            
-                            if save_inspection(new_record):
-                                st.success("Inspeção registrada!")
-                                st.balloons()
-                                st.session_state.qr_step = 'start'
-                                st.session_state.location = None
-                                st.rerun()
-            else:
-                st.error(f"Nenhum registro encontrado para o ID '{st.session_state.qr_id}'.")
-            
-            if st.button("Inspecionar Outro Equipamento"):
-                st.session_state.qr_step = 'start'
-                st.session_state.location = None
-                st.rerun()
+                    with st.form("quick_inspection_form"):
+                        location = st.session_state.location
+                        if location:
+                            accuracy = location.get('accuracy', 999)
+                            st.info(f"📍 Localização a ser registrada (Precisão: {accuracy:.1f}m)")
+                        else:
+                            st.warning("⚠️ Localização não obtida.")
+                        
+                        submitted = st.form_submit_button("✅ Confirmar e Registrar Inspeção", type="primary", disabled=not location)
+                        if submitted:
+                            with st.spinner("Salvando..."):
+                                # A variável 'photo_non_compliance' agora sempre existe
+                                photo_link_nc = upload_evidence_photo(
+                                    photo_non_compliance, 
+                                    st.session_state.qr_id,
+                                    "nao_conformidade"
+                                )
+                                
+                                new_record = last_record.copy()
+                                new_record['numero_selo_inmetro'] = last_record.get('numero_selo_inmetro')                        
+                                observacoes = "Inspeção de rotina OK." if status == "Conforme" else ", ".join(issues)
+                                temp_plan_record = {'aprovado_inspecao': "Sim" if status == "Conforme" else "Não", 'observacoes_gerais': observacoes}
+                                
+                                new_record.update({
+                                    'tipo_servico': "Inspeção",
+                                    'data_servico': date.today().isoformat(),
+                                    'inspetor_responsavel': get_user_display_name(),
+                                    'aprovado_inspecao': temp_plan_record['aprovado_inspecao'],
+                                    'observacoes_gerais': temp_plan_record['observacoes_gerais'],
+                                    'plano_de_acao': generate_action_plan(temp_plan_record),
+                                    'link_relatorio_pdf': None,
+                                    'latitude': location['latitude'],
+                                    'longitude': location['longitude'],
+                                    'link_foto_nao_conformidade': photo_link_nc
+                                })
+                                new_record.update(calculate_next_dates(new_record['data_servico'], 'Inspeção', new_record.get('tipo_agente')))
+                                
+                                if save_inspection(new_record):
+                                    st.success("Inspeção registrada!")
+                                    st.balloons()
+                                    st.session_state.qr_step = 'start'
+                                    st.session_state.location = None
+                                    st.rerun()
+                else:
+                    st.error(f"Nenhum registro encontrado para o ID '{st.session_state.qr_id}'.")
+                
+                if st.button("Inspecionar Outro Equipamento"):
+                    st.session_state.qr_step = 'start'
+                    st.session_state.location = None
+                    st.rerun()
 
 # --- Boilerplate ---
 if not show_login_page(): st.stop()

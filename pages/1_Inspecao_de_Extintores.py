@@ -21,7 +21,6 @@ from config.page_config import set_page_config
 
 set_page_config()
 
-# --- Estrutura Principal da Página ---
 def main_inspection_page():
     st.title("Gerenciamento de Inspeções de Extintores")
     tab_batch, tab_qr = st.tabs(["🗂️ Registro em Lote por PDF", "📱 Inspeção Rápida"])
@@ -201,7 +200,7 @@ def main_inspection_page():
                         if gallery_photo:
                             photo_non_compliance = gallery_photo
                         else:
-                            photo_non_compliance = camera_photoo
+                            photo_non_compliance = camera_photo
                 
                 with st.form("quick_inspection_form"):
                     location = st.session_state.location

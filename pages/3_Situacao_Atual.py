@@ -19,70 +19,61 @@ from operations.photo_operations import upload_evidence_photo
 
 set_page_config()
 
+# --- FUNÇÃO get_consolidated_status_df TOTALMENTE REFATORADA ---
 def get_consolidated_status_df(df_full, df_locais):
     if df_full.empty: 
         return pd.DataFrame()
     
-    # Lógica de Consolidação
     consolidated_data = []
     df_copy = df_full.copy()
     df_copy['data_servico'] = pd.to_datetime(df_copy['data_servico'], errors='coerce')
     df_copy = df_copy.dropna(subset=['data_servico'])
     
-    latest_records_df = df_copy.sort_values('data_servico').drop_duplicates(subset='numero_identificacao', keep='last')
+    unique_ids = df_copy['numero_identificacao'].unique()
 
-    # Mesclando (Merge) os dados de histórico com os de locais
-    latest_records_df['numero_identificacao'] = latest_records_df['numero_identificacao'].astype(str)
-    if not df_locais.empty:
-        df_locais = df_locais.rename(columns={'id': 'numero_identificacao'})
-        df_locais['numero_identificacao'] = df_locais['numero_identificacao'].astype(str)
-        merged_df = pd.merge(latest_records_df, df_locais[['numero_identificacao', 'local']], on='numero_identificacao', how='left')
-    else:
-        merged_df = latest_records_df
-        merged_df['local'] = np.nan
-
-    for index, latest_record in merged_df.iterrows():
-        ext_id = latest_record['numero_identificacao']
-        ext_df_history = df_copy[df_copy['numero_identificacao'] == ext_id]
-
-        # --- CORREÇÃO NA LÓGICA DE VENCIMENTO ---
-        # Considera qualquer registro de 'Inspeção' ou 'Substituição' como o ponto de partida para o próximo vencimento mensal.
-        # Isso inclui as inspeções geradas após uma ação corretiva.
-        last_insp_record = ext_df_history[ext_df_history['tipo_servico'].isin(['Inspeção', 'Substituição'])]
-        last_maint2_record = ext_df_history[ext_df_history['tipo_servico'] == 'Manutenção Nível 2']
-        last_maint3_record = ext_df_history[ext_df_history['tipo_servico'] == 'Manutenção Nível 3']
+    for ext_id in unique_ids:
+        # 1. Pega todo o histórico do extintor específico
+        ext_df = df_copy[df_copy['numero_identificacao'] == ext_id].sort_values(by='data_servico')
+        if ext_df.empty: 
+            continue
         
-        last_insp_date = last_insp_record['data_servico'].max() if not last_insp_record.empty else pd.NaT
-        last_maint2_date = last_maint2_record['data_servico'].max() if not last_maint2_record.empty else pd.NaT
-        last_maint3_date = last_maint3_record['data_servico'].max() if not last_maint3_record.empty else pd.NaT
-        # --- FIM DA CORREÇÃO NA LÓGICA DE VENCIMENTO ---
+        # 2. Pega o último registro cronológico para informações gerais (plano de ação, selo, etc.)
+        latest_record = ext_df.iloc[-1]
         
+        # 3. Encontra a data MAIS RECENTE para CADA tipo de serviço
+        last_insp_date = ext_df[ext_df['tipo_servico'].isin(['Inspeção', 'Substituição'])]['data_servico'].max()
+        last_maint2_date = ext_df[ext_df['tipo_servico'] == 'Manutenção Nível 2']['data_servico'].max()
+        last_maint3_date = ext_df[ext_df['tipo_servico'] == 'Manutenção Nível 3']['data_servico'].max()
+        
+        # 4. Calcula os PRÓXIMOS vencimentos com base nas datas mais recentes de cada tipo
         next_insp = (last_insp_date + relativedelta(months=1)) if pd.notna(last_insp_date) else pd.NaT
         next_maint2 = (last_maint2_date + relativedelta(months=12)) if pd.notna(last_maint2_date) else pd.NaT
         next_maint3 = (last_maint3_date + relativedelta(years=5)) if pd.notna(last_maint3_date) else pd.NaT
         
+        # 5. Determina o vencimento geral (o mais próximo de hoje)
         vencimentos = [d for d in [next_insp, next_maint2, next_maint3] if pd.notna(d)]
-        if not vencimentos: continue
-        
+        if not vencimentos: 
+            continue
         proximo_vencimento_real = min(vencimentos)
         
+        # 6. Define o STATUS ATUAL com base em todas as condições
         today_ts = pd.Timestamp(date.today())
         status_atual = "OK"
+        
+        # A ordem de verificação é importante:
+        # Primeiro, verifica se o último registro o marcou como "Fora de Operação"
         if latest_record.get('plano_de_acao') == "FORA DE OPERAÇÃO (SUBSTITUÍDO)":
             status_atual = "FORA DE OPERAÇÃO"
+        # Depois, verifica se algum dos vencimentos calculados já passou
         elif proximo_vencimento_real < today_ts: 
             status_atual = "VENCIDO"
+        # Por último, verifica se o último registro cronológico o deixou como "Não Conforme"
         elif latest_record.get('aprovado_inspecao') == 'Não': 
             status_atual = "NÃO CONFORME (Aguardando Ação)"
 
+        # Não adiciona ao dashboard se foi substituído
         if status_atual == "FORA DE OPERAÇÃO":
             continue
-
-        local_definido = latest_record.get('local')
-        if pd.notna(local_definido) and str(local_definido).strip() != '':
-            status_instalacao = f"✅ {local_definido}"
-        else:
-            status_instalacao = "⚠️ Local não definido"
 
         consolidated_data.append({
             'numero_identificacao': ext_id,
@@ -94,12 +85,27 @@ def get_consolidated_status_df(df_full, df_locais):
             'prox_venc_maint2': next_maint2.strftime('%d/%m/%Y') if pd.notna(next_maint2) else "N/A",
             'prox_venc_maint3': next_maint3.strftime('%d/%m/%Y') if pd.notna(next_maint3) else "N/A",
             'plano_de_acao': latest_record.get('plano_de_acao'),
-            'status_instalacao': status_instalacao 
         })
-    return pd.DataFrame(consolidated_data)
+
+    if not consolidated_data:
+        return pd.DataFrame()
+
+    # Junta com as informações de localização no final
+    dashboard_df = pd.DataFrame(consolidated_data)
+    if not df_locais.empty:
+        df_locais = df_locais.rename(columns={'id': 'numero_identificacao'})
+        df_locais['numero_identificacao'] = df_locais['numero_identificacao'].astype(str)
+        dashboard_df = pd.merge(dashboard_df, df_locais[['numero_identificacao', 'local']], on='numero_identificacao', how='left')
+        dashboard_df['status_instalacao'] = dashboard_df['local'].apply(lambda x: f"✅ {x}" if pd.notna(x) and str(x).strip() != '' else "⚠️ Local não definido")
+    else:
+        dashboard_df['status_instalacao'] = "⚠️ Local não definido"
+        
+    return dashboard_df
+# --- FIM DA FUNÇÃO REFATORADA ---
     
 @st.dialog("Registrar Ação Corretiva")
 def action_form(item, df_full_history, location):
+    # (Esta função permanece sem alterações)
     st.write(f"**Equipamento ID:** `{item['numero_identificacao']}`")
     st.write(f"**Problema Identificado:** `{item['plano_de_acao']}`")
     
@@ -172,6 +178,7 @@ def action_form(item, df_full_history, location):
                 st.error("Falha ao registrar a ação.")
 
 def show_dashboard_page():
+    # (Esta função permanece sem alterações)
     st.title("Situação Atual dos Equipamentos de Emergência")
     
     if st.button("Limpar Cache e Recarregar Dados"):

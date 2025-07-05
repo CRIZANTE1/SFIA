@@ -21,7 +21,6 @@ def generate_action_plan(record):
         return "Manter em monitoramento periódico."
 
     if aprovado == "Não":
-        # Mapeamento de palavras-chave para planos de ação específicos
         action_map = {
             "PINTURA": "Programar a repintura corretiva do extintor.",
             "MANÔMETRO": "Realizar a substituição imediata do manômetro.",
@@ -69,7 +68,6 @@ def calculate_next_dates(service_date_str, service_level, extinguisher_type):
     }
 
     if service_level == "Inspeção":
-        # ALTERAÇÃO AQUI: Frequência de inspeção fixada em 1 mês.
         freq_inspecao_meses = 1
         dates['data_proxima_inspecao'] = (service_date + relativedelta(months=freq_inspecao_meses)).isoformat()
     
@@ -115,7 +113,7 @@ def save_inspection(data):
         data.get('link_foto_nao_conformidade', None)
     ]
     
-    uploader = GoogleDriveUploader() # Mova a instanciação para dentro da função se não for global
+    uploader = GoogleDriveUploader() 
     try:
         uploader.append_data_to_sheet(EXTINGUISHER_SHEET_NAME, data_row)
         return True

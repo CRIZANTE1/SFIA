@@ -56,21 +56,35 @@ def show_map_page():
         with st.spinner("Processando localizações..."):
             locations_df = get_latest_locations(df_history)
 
-        if locations_df.empty:
-            st.warning("Nenhum extintor com dados de geolocalização válidos foi encontrado.")
-        else:
+        if not locations_df.empty:
             locations_df = assign_visual_properties(locations_df)
             st.success(f"Exibindo a localização de **{len(locations_df)}** extintores no mapa.")
             map_data = locations_df.rename(columns={'latitude': 'lat', 'longitude': 'lon'})
             st.map(map_data, zoom=16, size='size', color='color')
+        else:
+            st.warning("Nenhum extintor com dados de geolocalização válidos foi encontrado.")
 
-        # --- LÓGICA DE EXIBIÇÃO CORRIGIDA ---
-        with st.expander("Ver detalhes dos equipamentos no mapa"):
-            if locations_df.empty:
-                st.info("Nenhum equipamento com localização para exibir na tabela.")
+        # --- LEGENDA DE CORES REINTRODUZIDA AQUI ---
+        with st.expander("Ver detalhes dos equipamentos instalados e legenda"):
+            st.markdown("**Legenda de Cores:**")
+            st.markdown("""
+                - <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background-color:rgba(255,255,0,0.8);"></span> Pó Químico ABC
+                - <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background-color:rgba(0,100,255,0.8);"></span> Pó Químico BC
+                - <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background-color:rgba(128,128,128,0.8);"></span> Dióxido de Carbono (CO2)
+                - <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background-color:rgba(0,255,255,0.8);"></span> Água
+                - <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background-color:rgba(0,200,0,0.8);"></span> Espuma
+                - <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background-color:rgba(255,0,0,0.8);"></span> Outros
+            """, unsafe_allow_html=True)
+            st.markdown("---")
+            
+            # A tabela de detalhes agora mostra todos os equipamentos do histórico, não apenas os do mapa
+            # É importante garantir que esta lógica seja consistente com a do dashboard
+            all_latest_df_for_display = df_history.sort_values('data_servico').drop_duplicates(subset='numero_identificacao', keep='last')
+            if all_latest_df_for_display.empty:
+                st.info("Nenhum equipamento registrado para exibir detalhes.")
             else:
                 st.dataframe(
-                    locations_df[[
+                    all_latest_df_for_display[[
                         'numero_identificacao', 'numero_selo_inmetro', 'tipo_agente', 
                         'capacidade', 'latitude', 'longitude'
                     ]].rename(columns={

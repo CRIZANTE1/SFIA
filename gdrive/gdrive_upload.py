@@ -109,26 +109,4 @@ class GoogleDriveUploader:
             st.error(f"Erro ao ler dados da planilha '{sheet_name}': {str(e)}")
             raise
             
-    def upload_file_from_path(self, file_path, file_name, mime_type):
-        """
-        Faz upload de um arquivo a partir de um caminho no disco para o Google Drive.
-        """
-        try:
-            file_metadata = {
-                'name': file_name,
-                'parents': [GDRIVE_FOLDER_ID]
-            }
-            media = MediaFileUpload(
-                file_path,
-                mimetype=mime_type,
-                resumable=True
-            )
-            file = self.drive_service.files().create(
-                body=file_metadata,
-                media_body=media,
-                fields='id,webViewLink'
-            ).execute()
-            return file.get('webViewLink')
-        except Exception as e:
-            st.error(f"Erro ao fazer upload do arquivo a partir do caminho: {e}")
-            raise        
+     

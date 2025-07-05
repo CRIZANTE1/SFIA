@@ -109,11 +109,13 @@ def show_history_page():
             st.dataframe(
                 log_display_df, 
                 column_config={
-                    "Evidência (Foto)": st.column_config.ImageColumn(
-                        "Evidência (Foto)", help="Clique na imagem para ampliar"
+                    "Evidência (Foto)": st.column_config.LinkColumn(
+                        "Evidência (Foto)", 
+                        display_text="📷 Ver Foto", # O texto que aparecerá no link
+                        help="Clique para abrir a foto de evidência em uma nova aba"
                     )
                 },
-                hide_index=True, 
+                hide_index=True,  
                 use_container_width=True
             )
 

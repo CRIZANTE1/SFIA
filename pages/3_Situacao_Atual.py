@@ -14,7 +14,8 @@ from auth.auth_utils import is_admin_user, get_user_display_name
 from operations.demo_page import show_demo_page
 from config.page_config import set_page_config 
 from operations.corrective_actions import save_corrective_action
- 
+from operations.photo_operations import upload_evidence_photo
+
 
 set_page_config()
 
@@ -75,34 +76,43 @@ def action_form(item, df_full_history, location):
     st.markdown("---")
     id_substituto = st.text_input("ID do Equipamento Substituto (Opcional)")
 
-    if id_substituto:
-        st.info("Ao substituir um equipamento, a localização do antigo será usada para o novo.")
-    
+    st.markdown("---")
+    st.write("Opcional: Anexe uma foto como evidência da ação concluída.")
+    photo_evidence = st.file_uploader("Foto da Evidência", type=["jpg", "jpeg", "png"], key=f"photo_evidence_{item['numero_identificacao']}")
+
     if st.button("Salvar Ação", type="primary"):
+        # Toda a lógica de salvamento agora está dentro deste bloco
         if not acao_realizada:
             st.error("Por favor, descreva a ação realizada.")
-        else:
-            # Busca o histórico do equipamento substituto, se aplicável
+            return
+
+        # Validação de localização para substituição
+        original_record = find_last_record(df_full_history, item['numero_identificacao'], 'numero_identificacao')
+        if id_substituto and not original_record.get('latitude'):
+            st.error("Erro: O equipamento original não tem localização registrada, portanto a substituição não pode ser georreferenciada.")
+            return
+            
+        with st.spinner("Processando ação..."):
+            photo_link_evidence = upload_evidence_photo(
+                photo_evidence, 
+                item['numero_identificacao'],
+                "acao_corretiva"
+            )
+
             substitute_last_record = {}
             if id_substituto:
-                from operations.history import find_last_record # Importação local para esta função
                 substitute_last_record = find_last_record(df_full_history, id_substituto, 'numero_identificacao') or {}
                 if not substitute_last_record:
-                    st.info(f"Aviso: O equipamento substituto com ID '{id_substituto}' não tem histórico. Um novo registro será criado.")
+                    st.info(f"Aviso: Equipamento substituto com ID '{id_substituto}' não tem histórico. Será criado um novo registro.")
 
-            # Monta os detalhes da ação
             action_details = {
                 'acao_realizada': acao_realizada,
                 'responsavel_acao': responsavel_acao,
                 'id_substituto': id_substituto if id_substituto else None,
-                'location': location # Passa a localização atual do inspetor
+                'location': location, # Passa a localização do inspetor (pode ser usada se a do original falhar)
+                'photo_link': photo_link_evidence
             }
             
-            # Pega o registro original completo
-            original_record = df_full_history[df_full_history['numero_identificacao'] == item['numero_identificacao']].sort_values('data_servico').iloc[-1].to_dict()
-            
-            # --- CORREÇÃO DA CHAMADA DA FUNÇÃO ---
-            # Passa os 4 argumentos necessários
             if save_corrective_action(original_record, substitute_last_record, action_details, get_user_display_name()):
                 st.success("Ação corretiva registrada com sucesso!")
                 st.rerun()

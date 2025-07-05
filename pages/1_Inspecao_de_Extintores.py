@@ -190,7 +190,8 @@ def main_inspection_page():
                     issue_options = ["Lacre Violado", "Manômetro Fora de Faixa", "Dano Visível", "Obstrução", "Sinalização Inadequada", "Suporte Danificado/Faltando", "Pintura Danificada"]
                     issues = st.multiselect("Selecione as não conformidades:", issue_options)
                     st.warning("Opcional: Registre uma foto da não conformidade.")
-                    photo_non_compliance = st.camera_input("Foto da Não Conformidade")
+                    if st.toggle("📷 Anexar foto da não conformidade"):
+                        photo_non_compliance = st.camera_input("Foto da Não Conformidade", label_visibility="collapsed")
                 
                 with st.form("quick_inspection_form"):
                     location = st.session_state.location

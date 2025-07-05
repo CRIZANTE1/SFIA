@@ -19,10 +19,10 @@ from operations.photo_operations import upload_evidence_photo
 
 set_page_config()
 
-def get_consolidated_status_df(df_full):
+def get_consolidated_status_df(df_full, df_locais): # <<< CORREÇÃO 1: Parâmetro df_locais reinstaurado
     """
     Gera o status consolidado de cada extintor, analisando o histórico completo
-    para calcular corretamente as datas de vencimento de todos os níveis.
+    para calcular corretamente as datas de vencimento e juntando com os dados de localização.
     """
     if df_full.empty: 
         return pd.DataFrame()
@@ -40,38 +40,39 @@ def get_consolidated_status_df(df_full):
         if ext_df.empty: 
             continue
         
+        # 1. Ordena o histórico do extintor e pega o registro mais recente para informações gerais
         ext_df = ext_df.sort_values(by='data_servico')
         latest_record_info = ext_df.iloc[-1]
         
-        last_insp_date = ext_df['data_servico'].max() # Qualquer serviço conta como uma inspeção para o próximo mês
+        # 2. Encontra a data MAIS RECENTE para CADA tipo de serviço
+        last_insp_date = ext_df['data_servico'].max()
         last_maint2_date = ext_df[ext_df['tipo_servico'] == 'Manutenção Nível 2']['data_servico'].max()
         last_maint3_date = ext_df[ext_df['tipo_servico'] == 'Manutenção Nível 3']['data_servico'].max()
         
-        # 3. Calcula os PRÓXIMOS vencimentos com base nas datas mais recentes de cada tipo
+        # 3. Calcula os PRÓXIMOS vencimentos
         next_insp = (last_insp_date + relativedelta(months=1)) if pd.notna(last_insp_date) else pd.NaT
         next_maint2 = (last_maint2_date + relativedelta(months=12)) if pd.notna(last_maint2_date) else pd.NaT
         next_maint3 = (last_maint3_date + relativedelta(years=5)) if pd.notna(last_maint3_date) else pd.NaT
         
-        # 4. Determina o vencimento geral (o mais próximo de hoje)
+        # 4. Determina o vencimento geral
         vencimentos = [d for d in [next_insp, next_maint2, next_maint3] if pd.notna(d)]
         if not vencimentos: 
-            continue # Se não houver datas de vencimento, pula para o próximo equipamento
+            continue
         proximo_vencimento_real = min(vencimentos)
         
-        # 5. Define o STATUS ATUAL com base em todas as condições
+        # 5. Define o STATUS ATUAL
         today_ts = pd.Timestamp(date.today())
         status_atual = "OK"
         
-        # Se o equipamento foi explicitamente aposentado, ele não deve aparecer no dashboard de ativos
         if latest_record_info.get('plano_de_acao') == "FORA DE OPERAÇÃO (SUBSTITUÍDO)":
-            continue # Pula para o próximo extintor
+            continue
         
         if proximo_vencimento_real < today_ts: 
             status_atual = "VENCIDO"
         elif latest_record_info.get('aprovado_inspecao') == 'Não': 
             status_atual = "NÃO CONFORME (Aguardando Ação)"
 
-        # 6. Monta o dicionário com os dados consolidados e calculados corretamente
+        # 6. Monta o dicionário com os dados consolidados
         consolidated_data.append({
             'numero_identificacao': ext_id,
             'numero_selo_inmetro': latest_record_info.get('numero_selo_inmetro'),
@@ -83,14 +84,28 @@ def get_consolidated_status_df(df_full):
             'prox_venc_maint2': next_maint2.strftime('%d/%m/%Y') if pd.notna(next_maint2) else "N/A",
             'prox_venc_maint3': next_maint3.strftime('%d/%m/%Y') if pd.notna(next_maint3) else "N/A",
             'plano_de_acao': latest_record_info.get('plano_de_acao'),
-            'latitude': latest_record_info.get('latitude'),
-            'longitude': latest_record_info.get('longitude')
         })
 
     if not consolidated_data:
         return pd.DataFrame()
 
-    return pd.DataFrame(consolidated_data)
+    dashboard_df = pd.DataFrame(consolidated_data)
+    # A verificação 'numero_identificacao' in dashboard_df.columns previne erro se o df estiver vazio
+    if not df_locais.empty and 'numero_identificacao' in dashboard_df.columns:
+        # Renomeia a coluna 'id' em df_locais para corresponder a 'numero_identificacao'
+        if 'id' in df_locais.columns:
+            df_locais = df_locais.rename(columns={'id': 'numero_identificacao'})
+        
+        if 'numero_identificacao' in df_locais.columns and 'local' in df_locais.columns:
+            df_locais['numero_identificacao'] = df_locais['numero_identificacao'].astype(str)
+            dashboard_df = pd.merge(dashboard_df, df_locais[['numero_identificacao', 'local']], on='numero_identificacao', how='left')
+            dashboard_df['status_instalacao'] = dashboard_df['local'].apply(lambda x: f"✅ {x}" if pd.notna(x) and str(x).strip() != '' else "⚠️ Local não definido")
+        else:
+            dashboard_df['status_instalacao'] = "⚠️ Aba 'locais' mal formatada"
+    else:
+        dashboard_df['status_instalacao'] = "⚠️ Local não definido"
+        
+    return dashboard_df
     
 @st.dialog("Registrar Ação Corretiva")
 def action_form(item, df_full_history, location):

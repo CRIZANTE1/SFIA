@@ -7,6 +7,7 @@ import os
 import numpy as np
 from streamlit_js_eval import streamlit_js_eval
 
+# Adiciona o diretório raiz ao path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from operations.history import load_sheet_data, find_last_record
 from auth.login_page import show_login_page, show_user_header, show_logout_button
@@ -22,39 +23,39 @@ def get_consolidated_status_df(df_full, df_locais):
     if df_full.empty: 
         return pd.DataFrame()
     
+    # Lógica de Consolidação
     consolidated_data = []
     df_copy = df_full.copy()
     df_copy['data_servico'] = pd.to_datetime(df_copy['data_servico'], errors='coerce')
     df_copy = df_copy.dropna(subset=['data_servico'])
     
-    # Pega o último registro de cada extintor do histórico
     latest_records_df = df_copy.sort_values('data_servico').drop_duplicates(subset='numero_identificacao', keep='last')
 
+    # Mesclando (Merge) os dados de histórico com os de locais
     latest_records_df['numero_identificacao'] = latest_records_df['numero_identificacao'].astype(str)
     if not df_locais.empty:
-        # Renomeia a coluna 'id' para 'numero_identificacao' para a mesclagem
         df_locais = df_locais.rename(columns={'id': 'numero_identificacao'})
         df_locais['numero_identificacao'] = df_locais['numero_identificacao'].astype(str)
-        # Usa um 'left' merge para manter todos os extintores do histórico
         merged_df = pd.merge(latest_records_df, df_locais[['numero_identificacao', 'local']], on='numero_identificacao', how='left')
     else:
-        # Se a planilha de locais estiver vazia, cria as colunas vazias para evitar erros
         merged_df = latest_records_df
         merged_df['local'] = np.nan
 
-    # Itera sobre o DataFrame mesclado
     for index, latest_record in merged_df.iterrows():
         ext_id = latest_record['numero_identificacao']
         ext_df_history = df_copy[df_copy['numero_identificacao'] == ext_id]
 
-        # Lógica de cálculo de vencimento
-        last_insp_date_record = ext_df_history[ext_df_history['tipo_servico'].isin(['Inspeção', 'Substituição'])]
-        last_maint2_date_record = ext_df_history[ext_df_history['tipo_servico'] == 'Manutenção Nível 2']
-        last_maint3_date_record = ext_df_history[ext_df_history['tipo_servico'] == 'Manutenção Nível 3']
+        # --- CORREÇÃO NA LÓGICA DE VENCIMENTO ---
+        # Considera qualquer registro de 'Inspeção' ou 'Substituição' como o ponto de partida para o próximo vencimento mensal.
+        # Isso inclui as inspeções geradas após uma ação corretiva.
+        last_insp_record = ext_df_history[ext_df_history['tipo_servico'].isin(['Inspeção', 'Substituição'])]
+        last_maint2_record = ext_df_history[ext_df_history['tipo_servico'] == 'Manutenção Nível 2']
+        last_maint3_record = ext_df_history[ext_df_history['tipo_servico'] == 'Manutenção Nível 3']
         
-        last_insp_date = last_insp_date_record['data_servico'].max() if not last_insp_date_record.empty else pd.NaT
-        last_maint2_date = last_maint2_date_record['data_servico'].max() if not last_maint2_date_record.empty else pd.NaT
-        last_maint3_date = last_maint3_date_record['data_servico'].max() if not last_maint3_date_record.empty else pd.NaT
+        last_insp_date = last_insp_record['data_servico'].max() if not last_insp_record.empty else pd.NaT
+        last_maint2_date = last_maint2_record['data_servico'].max() if not last_maint2_record.empty else pd.NaT
+        last_maint3_date = last_maint3_record['data_servico'].max() if not last_maint3_record.empty else pd.NaT
+        # --- FIM DA CORREÇÃO NA LÓGICA DE VENCIMENTO ---
         
         next_insp = (last_insp_date + relativedelta(months=1)) if pd.notna(last_insp_date) else pd.NaT
         next_maint2 = (last_maint2_date + relativedelta(months=12)) if pd.notna(last_maint2_date) else pd.NaT
@@ -77,7 +78,6 @@ def get_consolidated_status_df(df_full, df_locais):
         if status_atual == "FORA DE OPERAÇÃO":
             continue
 
-        # Define o texto da localização com base na nova coluna 'local'
         local_definido = latest_record.get('local')
         if pd.notna(local_definido) and str(local_definido).strip() != '':
             status_instalacao = f"✅ {local_definido}"
@@ -124,17 +124,25 @@ def action_form(item, df_full_history, location):
             photo_evidence = gallery_photo
         else:
             photo_evidence = camera_photo
-
+       
     if st.button("Salvar Ação", type="primary"):
         if not acao_realizada:
             st.error("Por favor, descreva a ação realizada.")
             return
 
         original_record = find_last_record(df_full_history, item['numero_identificacao'], 'numero_identificacao')
-        if id_substituto and (pd.isna(original_record.get('latitude')) or pd.isna(original_record.get('longitude'))):
-            st.error("Erro: O equipamento original não tem localização registrada, portanto a substituição não pode ser georreferenciada.")
-            return
-            
+        if id_substituto:
+            df_locais = load_sheet_data("locais")
+            if not df_locais.empty:
+                df_locais['id'] = df_locais['id'].astype(str)
+                original_location_info = df_locais[df_locais['id'] == original_record['numero_identificacao']]
+                if original_location_info.empty or pd.isna(original_location_info.iloc[0]['local']):
+                     st.error("Erro: O equipamento original não tem um local definido na aba 'locais', portanto a substituição não pode ser concluída.")
+                     return
+            else:
+                st.error("Erro: A aba 'locais' não foi encontrada ou está vazia.")
+                return
+
         with st.spinner("Processando ação..."):
             photo_link_evidence = upload_evidence_photo(
                 photo_evidence, 
@@ -184,15 +192,13 @@ def show_dashboard_page():
     with tab_extinguishers:
         st.header("Dashboard de Extintores")
         
-        # Carrega os dados da aba 'locais' e 'extintores'
         df_full_history = load_sheet_data("extintores")
         df_locais = load_sheet_data("locais") 
 
         if df_full_history.empty:
-            st.warning("Ainda não há registros para exibir."); return
+            st.warning("Ainda não há registros de inspeção para exibir."); return
 
         with st.spinner("Analisando o status de todos os extintores..."):
-            # Passa o DataFrame de locais para a função
             dashboard_df = get_consolidated_status_df(df_full_history, df_locais)
         
         if dashboard_df.empty:
@@ -217,7 +223,6 @@ def show_dashboard_page():
             for index, row in filtered_df.iterrows():
                 status_icon = "🟢" if row['status_atual'] == 'OK' else ('🔴' if row['status_atual'] == 'VENCIDO' else '🟠')
                 
-                # O título do expander agora usa a nova coluna `status_instalacao`
                 expander_title = f"{status_icon} **ID:** {row['numero_identificacao']} | **Tipo:** {row['tipo_agente']} | **Status:** {row['status_atual']} | **Localização:** {row['status_instalacao']}"
                 
                 with st.expander(expander_title):

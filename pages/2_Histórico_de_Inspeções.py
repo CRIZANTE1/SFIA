@@ -23,7 +23,14 @@ def format_dataframe_for_display(df, is_log=False):
 
     if is_log:
         # Formatação específica para o Log de Ações
-        df['data_correcao'] = pd.to_datetime(df['data_correcao']).dt.strftime('%d/%m/%Y')
+        if 'data_correcao' in df.columns:
+            df['data_correcao'] = pd.to_datetime(df['data_correcao']).dt.strftime('%d/%m/%Y')
+        
+        ### ALTERAÇÃO 1: Adicionar a coluna da foto de evidência ao mapeamento ###
+        if 'link_foto_evidencia' not in df.columns:
+            df['link_foto_evidencia'] = None
+        df['link_foto_evidencia'] = df['link_foto_evidencia'].fillna(None)
+        
         display_columns = {
             'data_correcao': 'Data da Correção',
             'id_equipamento': 'ID do Equipamento',
@@ -31,12 +38,13 @@ def format_dataframe_for_display(df, is_log=False):
             'acao_realizada': 'Ação Realizada',
             'responsavel_acao': 'Responsável',
             'id_equipamento_substituto': 'ID do Equip. Substituto' 
-        }
+            'link_foto_evidencia': 'Evidência (Foto)' # Novo nome para a coluna
+            }
     else:
-        # Formatação para o Histórico de Serviços
-        if 'link_relatorio_pdf' not in df.columns:
-            df['link_relatorio_pdf'] = None
-        df['link_relatorio_pdf'] = df['link_relatorio_pdf'].fillna("N/A")
+            # Formatação para o Histórico de Serviços
+            if 'link_relatorio_pdf' not in df.columns:
+                df['link_relatorio_pdf'] = None
+            df['link_relatorio_pdf'] = df['link_relatorio_pdf'].fillna("N/A")
         
         display_columns = {
             'data_servico': 'Data do Serviço',
@@ -101,7 +109,16 @@ def show_history_page():
             st.info("Nenhuma ação corretiva foi registrada ainda.")
         else:
             log_display_df = format_dataframe_for_display(df_action_log, is_log=True)
-            st.dataframe(log_display_df, hide_index=True, use_container_width=True)
+            st.dataframe(
+                log_display_df, 
+                column_config={
+                    "Evidência (Foto)": st.column_config.ImageColumn(
+                        "Evidência (Foto)", help="Clique na imagem para ampliar"
+                    )
+                },
+                hide_index=True, 
+                use_container_width=True
+            )
 
 
 # --- Boilerplate de Autenticação ---

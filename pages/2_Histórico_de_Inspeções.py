@@ -24,9 +24,9 @@ def format_dataframe_for_display(df, is_log=False):
     if is_log:
         # Formatação específica para o Log de Ações
         if 'data_correcao' in df.columns:
-            df['data_correcao'] = pd.to_datetime(df['data_correcao']).dt.strftime('%d/%m/%Y')
+            # Corrigido para lidar com valores NaT (Not a Time) antes de formatar
+            df['data_correcao'] = pd.to_datetime(df['data_correcao'], errors='coerce').dt.strftime('%d/%m/%Y')
         
-        ### ALTERAÇÃO 1: Adicionar a coluna da foto de evidência ao mapeamento ###
         if 'link_foto_evidencia' not in df.columns:
             df['link_foto_evidencia'] = None
         df['link_foto_evidencia'] = df['link_foto_evidencia'].fillna(None)
@@ -37,14 +37,13 @@ def format_dataframe_for_display(df, is_log=False):
             'problema_original': 'Problema Original',
             'acao_realizada': 'Ação Realizada',
             'responsavel_acao': 'Responsável',
-            'id_equipamento_substituto': 'ID do Equip. Substituto' 
-            'link_foto_evidencia': 'Evidência (Foto)' # Novo nome para a coluna
-            }
+            'id_equipamento_substituto': 'ID do Equip. Substituto', # <-- CORREÇÃO 1: Vírgula adicionada aqui
+            'link_foto_evidencia': 'Evidência (Foto)'
+        }
     else:
-            # Formatação para o Histórico de Serviços
-            if 'link_relatorio_pdf' not in df.columns:
-                df['link_relatorio_pdf'] = None
-            df['link_relatorio_pdf'] = df['link_relatorio_pdf'].fillna("N/A")
+        if 'link_relatorio_pdf' not in df.columns:
+            df['link_relatorio_pdf'] = None
+        df['link_relatorio_pdf'] = df['link_relatorio_pdf'].fillna("N/A")
         
         display_columns = {
             'data_servico': 'Data do Serviço',
@@ -58,6 +57,7 @@ def format_dataframe_for_display(df, is_log=False):
             'link_relatorio_pdf': 'Relatório (PDF)'
         }
 
+    # Esta parte funciona para ambos os casos, pois `display_columns` já foi definido corretamente
     cols_to_display = [col for col in display_columns.keys() if col in df.columns]
     return df[cols_to_display].rename(columns=display_columns)
 
@@ -93,7 +93,8 @@ def show_history_page():
         if selected_year != "Todos os Anos":
             filtered_df = filtered_df[filtered_df['data_servico_dt'].dt.year == selected_year]
         if search_id:
-            filtered_df = filtered_df[filtered_df['numero_identificacao'].astype(str).str.contains(search_id, na=False)]
+            # Adicionado case=False para busca não sensível a maiúsculas/minúsculas
+            filtered_df = filtered_df[filtered_df['numero_identificacao'].astype(str).str.contains(search_id, case=False, na=False)]
 
         if filtered_df.empty:
             st.warning("Nenhum registro encontrado com os filtros selecionados.")
@@ -119,7 +120,6 @@ def show_history_page():
                 hide_index=True, 
                 use_container_width=True
             )
-
 
 # --- Boilerplate de Autenticação ---
 if not show_login_page(): 

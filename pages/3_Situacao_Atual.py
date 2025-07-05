@@ -80,12 +80,17 @@ def action_form(item, df_full_history, location):
     st.write("Opcional: Anexe uma foto como evidência da ação concluída.")
     photo_evidence = None
     if st.toggle("📷 Anexar foto de evidência da correção", key=f"toggle_photo_{item['numero_identificacao']}"):
-        camera_photo = st.camera_input(
-            "Tire uma foto da ação concluída", 
-            label_visibility="collapsed", 
-            key=f"ac_camera_{item['numero_identificacao']}"
-        )
-        if camera_photo:
+        st.write("**Opção 1: Tirar Foto Agora (Qualidade Menor)**")
+        camera_photo = st.camera_input("Câmera", label_visibility="collapsed", key=f"ac_camera_{item['numero_identificacao']}")
+        
+        st.markdown("---")
+        st.write("**Opção 2: Enviar da Galeria (Qualidade Alta)**")
+        gallery_photo = st.file_uploader("Galeria", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key=f"ac_uploader_{item['numero_identificacao']}")
+        
+        # Prioriza o upload da galeria se ambos forem usados
+        if gallery_photo:
+            photo_evidence = gallery_photo
+        else:
             photo_evidence = camera_photo
        
 

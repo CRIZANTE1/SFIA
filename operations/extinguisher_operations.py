@@ -48,19 +48,28 @@ def generate_action_plan(record):
     
     return "N/A" # Caso o status não seja 'Sim' ou 'Não'
 
-def calculate_next_dates(service_date_str, service_level, extinguisher_type):
+
+def calculate_next_dates(service_date_str, service_level, existing_dates=None):
     """
-    Calcula as próximas datas de serviço com base na data e nível de serviço.
-    Inspeção agora é MENSAL.
-    """
-    if not service_date_str: return {}
+    Calcula as próximas datas de serviço, preservando as datas existentes que não são afetadas.
     
+    Args:
+        service_date_str (str): A data do serviço que está sendo realizado.
+        service_level (str): O nível do serviço ('Inspeção', 'Manutenção Nível 2', etc.).
+        existing_dates (dict, optional): Um dicionário com as datas de vencimento atuais do equipamento.
+    
+    Returns:
+        dict: Um dicionário com todas as datas de vencimento atualizadas.
+    """
+    if not service_date_str:
+        return {}
+        
     try:
-        service_date = date.fromisoformat(service_date_str)
+        service_date = pd.to_datetime(service_date_str).date()
     except (ValueError, TypeError):
         return {} 
 
-    dates = {
+    dates = existing_dates.copy() if existing_dates else {
         'data_proxima_inspecao': None,
         'data_proxima_manutencao_2_nivel': None,
         'data_proxima_manutencao_3_nivel': None,
@@ -68,16 +77,19 @@ def calculate_next_dates(service_date_str, service_level, extinguisher_type):
     }
 
     if service_level == "Inspeção":
-        freq_inspecao_meses = 1
-        dates['data_proxima_inspecao'] = (service_date + relativedelta(months=freq_inspecao_meses)).isoformat()
+        # Uma inspeção sempre define a próxima inspeção mensal
+        dates['data_proxima_inspecao'] = (service_date + relativedelta(months=1)).isoformat()
     
     elif service_level == "Manutenção Nível 2":
-        freq_manutencao_2_meses = 12
-        dates['data_proxima_manutencao_2_nivel'] = (service_date + relativedelta(months=freq_manutencao_2_meses)).isoformat()
+        # Uma manutenção Nível 2 também conta como uma inspeção
+        dates['data_proxima_inspecao'] = (service_date + relativedelta(months=1)).isoformat()
+        dates['data_proxima_manutencao_2_nivel'] = (service_date + relativedelta(months=12)).isoformat()
 
     elif service_level == "Manutenção Nível 3":
-        freq_manutencao_3_anos = 5
-        dates['data_proxima_manutencao_3_nivel'] = (service_date + relativedelta(years=freq_manutencao_3_anos)).isoformat()
+        # Uma manutenção Nível 3 (Ensaio Hidrostático) zera TODOS os contadores
+        dates['data_proxima_inspecao'] = (service_date + relativedelta(months=1)).isoformat()
+        dates['data_proxima_manutencao_2_nivel'] = (service_date + relativedelta(months=12)).isoformat()
+        dates['data_proxima_manutencao_3_nivel'] = (service_date + relativedelta(years=5)).isoformat()
         dates['data_ultimo_ensaio_hidrostatico'] = service_date.isoformat()
         
     return dates

@@ -219,39 +219,53 @@ def main_inspection_page():
                                 "nao_conformidade"
                             )
                             
+                            last_record = st.session_state.last_record
+                            
+                            # Cria o novo registro, copiando o anterior para manter os dados base
                             new_record = last_record.copy()
-                            new_record['numero_selo_inmetro'] = last_record.get('numero_selo_inmetro')
+                            
+                            # Prepara um dicionário com as datas existentes do último registro
+                            existing_dates = {
+                                'data_proxima_inspecao': last_record.get('data_proxima_inspecao'),
+                                'data_proxima_manutencao_2_nivel': last_record.get('data_proxima_manutencao_2_nivel'),
+                                'data_proxima_manutencao_3_nivel': last_record.get('data_proxima_manutencao_3_nivel'),
+                                'data_ultimo_ensaio_hidrostatico': last_record.get('data_ultimo_ensaio_hidrostatico'),
+                            }
+                            
+                            # Usa a nova função, passando as datas existentes para preservá-las
+                            updated_dates = calculate_next_dates(
+                                service_date_str=date.today().isoformat(), 
+                                service_level="Inspeção", 
+                                existing_dates=existing_dates
+                            )
+                            
                             observacoes = "Inspeção de rotina OK." if status == "Conforme" else ", ".join(issues)
                             temp_plan_record = {'aprovado_inspecao': "Sim" if status == "Conforme" else "Não", 'observacoes_gerais': observacoes}
                             
+                            # Atualiza o new_record com todos os dados novos e preservados
                             new_record.update({
                                 'tipo_servico': "Inspeção",
                                 'data_servico': date.today().isoformat(),
                                 'inspetor_responsavel': get_user_display_name(),
                                 'aprovado_inspecao': temp_plan_record['aprovado_inspecao'],
-                                'observacoes_gerais': temp_plan_record['observacoes_gerais'],
+                                'observacoes_gerais': observacoes,
                                 'plano_de_acao': generate_action_plan(temp_plan_record),
                                 'link_relatorio_pdf': None,
                                 'latitude': location['latitude'],
                                 'longitude': location['longitude'],
                                 'link_foto_nao_conformidade': photo_link_nc
                             })
-                            new_record.update(calculate_next_dates(new_record['data_servico'], 'Inspeção', new_record.get('tipo_agente')))
+                            
+                            # Adiciona as datas atualizadas ao novo registro
+                            new_record.update(updated_dates)
                             
                             if save_inspection(new_record):
                                 st.success("Inspeção registrada!")
                                 st.balloons()
                                 st.session_state.qr_step = 'start'
                                 st.session_state.location = None
+                                st.cache_data.clear()
                                 st.rerun()
-            else:
-                st.error(f"Nenhum registro encontrado para o ID '{st.session_state.qr_id}'.")
-            
-            if st.button("Inspecionar Outro Equipamento"):
-                st.session_state.qr_step = 'start'
-                st.session_state.location = None
-                st.rerun()
-
 # --- Boilerplate ---
 if not show_login_page(): st.stop()
 show_user_header(); show_logout_button()

@@ -24,8 +24,8 @@ def main():
     if is_admin_user():
         st.sidebar.success("✅ Acesso completo")
         
-        st.title("Bem-vindo ao SFIA!")
-        st.subheader("Sistema de Fiscalização por Inteligência Artificial")
+        st.title("Bem-vindo ao ISF IA!")
+        st.subheader("Sistema de Fiscalização e Inspeções com Inteligência Artificial")
         st.markdown("""
         Use a barra de navegação à esquerda para acessar as funcionalidades do sistema.
 

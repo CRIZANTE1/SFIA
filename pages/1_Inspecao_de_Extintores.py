@@ -191,18 +191,17 @@ def main_inspection_page():
                     issues = st.multiselect("Selecione as não conformidades:", issue_options)
                     st.warning("Opcional: Registre uma foto da não conformidade.")
                     if st.toggle("📷 Anexar foto da não conformidade", key="toggle_nc_photo"):
-                    st.write("**Opção 1: Tirar Foto Agora (Qualidade Menor)**")
-                    camera_photo = st.camera_input("Câmera", label_visibility="collapsed", key="nc_camera")
-                    
-                    st.markdown("---")
-                    st.write("**Opção 2: Enviar da Galeria (Qualidade Alta)**")
-                    gallery_photo = st.file_uploader("Galeria", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="nc_uploader")
-    
-                    # Prioriza o upload da galeria se ambos forem usados
-                    if gallery_photo:
-                        photo_non_compliance = gallery_photo
-                    else:
-                        photo_non_compliance = camera_photo
+                        st.write("**Opção 1: Tirar Foto Agora (Qualidade Menor)**")
+                        camera_photo = st.camera_input("Câmera", label_visibility="collapsed", key="nc_camera")
+                        
+                        st.markdown("---")
+                        st.write("**Opção 2: Enviar da Galeria (Qualidade Alta)**")
+                        gallery_photo = st.file_uploader("Galeria", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="nc_uploader")
+
+                        if gallery_photo:
+                            photo_non_compliance = gallery_photo
+                        else:
+                            photo_non_compliance = camera_photoo
                 
                 with st.form("quick_inspection_form"):
                     location = st.session_state.location

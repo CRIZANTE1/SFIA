@@ -98,24 +98,61 @@ def process_extinguisher_pdf(uploaded_file):
     return None
 
 def save_inspection(data):
-    """Salva os dados de UMA inspeção, incluindo as coordenadas de geolocalização."""
+    """Salva os dados de UMA inspeção, buscando e preservando a última data de ensaio hidrostático."""
+    
+    if data.get('tipo_servico') != 'Manutenção Nível 3':
+        try:
+            # Carrega todo o histórico para fazer a busca
+            # Usar _no_cache=True pode ser útil aqui para garantir os dados mais recentes, mas é opcional
+            df_history = load_sheet_data(EXTINGUISHER_SHEET_NAME) 
+            if not df_history.empty and 'numero_identificacao' in df_history.columns:
+                ext_id = data.get('numero_identificacao')
+                
+                # Filtra o histórico para este extintor específico
+                ext_history = df_history[df_history['numero_identificacao'].astype(str) == str(ext_id)]
+                
+                # Encontra a data do último registro de Nível 3 em todo o histórico dele
+                if not ext_history.empty:
+                    last_hydro_test_date_str = ext_history[ext_history['tipo_servico'] == 'Manutenção Nível 3']['data_servico'].max()
+                    
+                    if pd.notna(last_hydro_test_date_str):
+                        last_hydro_test_date = pd.to_datetime(last_hydro_test_date_str).date()
+                        # Preenche os campos do Nível 3 no novo registro que será salvo
+                        data['data_ultimo_ensaio_hidrostatico'] = last_hydro_test_date.isoformat()
+                        data['data_proxima_manutencao_3_nivel'] = (last_hydro_test_date + relativedelta(years=5)).isoformat()
+
+        except Exception as e:
+            # Não para a execução, apenas avisa o usuário
+            st.warning(f"Não foi possível buscar o histórico do ensaio hidrostático para o ID {data.get('numero_identificacao')}: {e}")
+    
+    
     id_equip = data.get('numero_identificacao', 'N/A')
     
     data_row = [
-        data.get('numero_identificacao'), data.get('numero_selo_inmetro'),
-        data.get('tipo_agente'), data.get('capacidade'), data.get('marca_fabricante'),
-        data.get('ano_fabricacao'), data.get('tipo_servico'), data.get('data_servico'),
-        data.get('inspetor_responsavel'), data.get('empresa_executante'),
-        data.get('data_proxima_inspecao'), data.get('data_proxima_manutencao_2_nivel'),
-        data.get('data_proxima_manutencao_3_nivel'), data.get('data_ultimo_ensaio_hidrostatico'),
-        data.get('aprovado_inspecao'), data.get('observacoes_gerais'),
-        data.get('plano_de_acao'), data.get('link_relatorio_pdf', None),
-        data.get('latitude', None),  # Adiciona latitude
-        data.get('longitude', None), # Adiciona longitude
-        data.get('link_foto_nao_conformidade', None)
+        data.get('numero_identificacao'), 
+        data.get('numero_selo_inmetro'),
+        data.get('tipo_agente'), 
+        data.get('capacidade'), 
+        data.get('marca_fabricante'),
+        data.get('ano_fabricacao'), 
+        data.get('tipo_servico'), 
+        data.get('data_servico'),
+        data.get('inspetor_responsavel'), 
+        data.get('empresa_executante'),
+        data.get('data_proxima_inspecao'), 
+        data.get('data_proxima_manutencao_2_nivel'),
+        data.get('data_proxima_manutencao_3_nivel'), 
+        data.get('data_ultimo_ensaio_hidrostatico'),
+        data.get('aprovado_inspecao'), 
+        data.get('observacoes_gerais'),
+        data.get('plano_de_acao'), 
+        data.get('link_relatorio_pdf'), 
+        data.get('latitude'),
+        data.get('longitude'),
+        data.get('link_foto_nao_conformidade')
     ]
     
-    uploader = GoogleDriveUploader() # Mova a instanciação para dentro da função se não for global
+    uploader = GoogleDriveUploader()
     try:
         uploader.append_data_to_sheet(EXTINGUISHER_SHEET_NAME, data_row)
         return True

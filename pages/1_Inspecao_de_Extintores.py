@@ -32,25 +32,52 @@ def main_inspection_page():
         st.session_state.setdefault('uploaded_pdf_file', None)
 
         st.subheader("1. Faça o Upload do Relatório")
-        st.info("O sistema analisará o PDF e determinará o nível de serviço (Inspeção, Nível 2 ou Nível 3) para cada extintor automaticamente.")
+        st.info("O sistema analisará o PDF, buscará o histórico de cada equipamento e atualizará as datas de vencimento conforme o serviço realizado.")
         
         uploaded_pdf = st.file_uploader("Escolha o relatório PDF", type=["pdf"], key="batch_pdf_uploader")
         if uploaded_pdf: 
             st.session_state.uploaded_pdf_file = uploaded_pdf
         
         if st.session_state.uploaded_pdf_file and st.button("🔎 Analisar Dados do PDF com IA"):
-            with st.spinner("Analisando o documento com IA..."):
+            with st.spinner("Analisando o documento e cruzando com histórico..."):
                 extracted_list = process_extinguisher_pdf(st.session_state.uploaded_pdf_file)
                 if extracted_list:
+                    
+                    # Carrega todo o histórico UMA VEZ para otimizar a busca
+                    df_history = load_sheet_data("extintores")
+                    
                     processed_list = []
                     for item in extracted_list:
                         if isinstance(item, dict):
                             service_level = item.get('tipo_servico', 'Inspeção')
+                            ext_id = item.get('numero_identificacao')
+                            
+                            # Busca o último registro para obter as datas existentes
+                            last_record = find_last_record(df_history, ext_id, 'numero_identificacao')
+                            
+                            existing_dates = {}
+                            if last_record:
+                                existing_dates = {
+                                    'data_proxima_inspecao': last_record.get('data_proxima_inspecao'),
+                                    'data_proxima_manutencao_2_nivel': last_record.get('data_proxima_manutencao_2_nivel'),
+                                    'data_proxima_manutencao_3_nivel': last_record.get('data_proxima_manutencao_3_nivel'),
+                                    'data_ultimo_ensaio_hidrostatico': last_record.get('data_ultimo_ensaio_hidrostatico'),
+                                }
+
+                            # Chama a função de cálculo de datas, que saberá o que preservar
+                            # e o que sobrescrever com base no 'service_level'
+                            updated_dates = calculate_next_dates(
+                                service_date_str=item.get('data_servico'),
+                                service_level=service_level,
+                                existing_dates=existing_dates
+                            )
+
                             item['tipo_servico'] = service_level
-                            item['link_relatorio_pdf'] = "Aguardando salvamento..." if service_level != "Inspeção" else "N/A"
-                            item.update(calculate_next_dates(item.get('data_servico'), service_level, item.get('tipo_agente')))
+                            item['link_relatorio_pdf'] = "Aguardando salvamento..." if service_level in ["Manutenção Nível 2", "Manutenção Nível 3"] else "N/A"
+                            item.update(updated_dates) # Atualiza o item com as datas corretas
                             item['plano_de_acao'] = generate_action_plan(item)
                             processed_list.append(item)
+
                     st.session_state.processed_data = processed_list
                     st.session_state.batch_step = 'confirm'
                     st.rerun()
@@ -84,6 +111,7 @@ def main_inspection_page():
                     st.session_state.batch_step = 'start'
                     st.session_state.processed_data = None
                     st.session_state.uploaded_pdf_file = None
+                    st.cache_data.clear()
                     st.rerun()
 
     with tab_qr:
@@ -220,11 +248,8 @@ def main_inspection_page():
                             )
                             
                             last_record = st.session_state.last_record
-                            
-                            # Cria o novo registro, copiando o anterior para manter os dados base
                             new_record = last_record.copy()
                             
-                            # Prepara um dicionário com as datas existentes do último registro
                             existing_dates = {
                                 'data_proxima_inspecao': last_record.get('data_proxima_inspecao'),
                                 'data_proxima_manutencao_2_nivel': last_record.get('data_proxima_manutencao_2_nivel'),
@@ -232,7 +257,6 @@ def main_inspection_page():
                                 'data_ultimo_ensaio_hidrostatico': last_record.get('data_ultimo_ensaio_hidrostatico'),
                             }
                             
-                            # Usa a nova função, passando as datas existentes para preservá-las
                             updated_dates = calculate_next_dates(
                                 service_date_str=date.today().isoformat(), 
                                 service_level="Inspeção", 
@@ -242,7 +266,6 @@ def main_inspection_page():
                             observacoes = "Inspeção de rotina OK." if status == "Conforme" else ", ".join(issues)
                             temp_plan_record = {'aprovado_inspecao': "Sim" if status == "Conforme" else "Não", 'observacoes_gerais': observacoes}
                             
-                            # Atualiza o new_record com todos os dados novos e preservados
                             new_record.update({
                                 'tipo_servico': "Inspeção",
                                 'data_servico': date.today().isoformat(),
@@ -256,7 +279,6 @@ def main_inspection_page():
                                 'link_foto_nao_conformidade': photo_link_nc
                             })
                             
-                            # Adiciona as datas atualizadas ao novo registro
                             new_record.update(updated_dates)
                             
                             if save_inspection(new_record):
@@ -266,6 +288,14 @@ def main_inspection_page():
                                 st.session_state.location = None
                                 st.cache_data.clear()
                                 st.rerun()
+            else:
+                st.error(f"Nenhum registro encontrado para o ID '{st.session_state.qr_id}'.")
+            
+            if st.button("Inspecionar Outro Equipamento"):
+                st.session_state.qr_step = 'start'
+                st.session_state.location = None
+                st.rerun()
+
 # --- Boilerplate ---
 if not show_login_page(): st.stop()
 show_user_header(); show_logout_button()

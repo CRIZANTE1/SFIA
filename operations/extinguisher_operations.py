@@ -111,7 +111,8 @@ def save_inspection(data):
         data.get('aprovado_inspecao'), data.get('observacoes_gerais'),
         data.get('plano_de_acao'), data.get('link_relatorio_pdf', None),
         data.get('latitude', None),  # Adiciona latitude
-        data.get('longitude', None) # Adiciona longitude
+        data.get('longitude', None), # Adiciona longitude
+        data.get('link_foto_nao_conformidade', None)
     ]
     
     uploader = GoogleDriveUploader() # Mova a instanciação para dentro da função se não for global

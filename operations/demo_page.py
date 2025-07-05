@@ -8,7 +8,7 @@ def show_demo_page():
     st.title("Sistema de Gestão de Inspeções de Incêndio")
 
     # URL do vídeo de demonstração (você pode inserir o link aqui depois)
-    video_url = '' 
+    video_url = 'https://youtu.be/h7DSCUAzHsE' 
     if video_url:
         st.video(video_url)
     else:

@@ -1,3 +1,5 @@
+# pages/1_Inspecao_de_Extintores.py
+
 import streamlit as st
 import pandas as pd
 from datetime import date
@@ -191,21 +193,7 @@ def main_inspection_page():
                     issues = st.multiselect("Selecione as não conformidades:", issue_options)
                     st.warning("Opcional: Registre uma foto da não conformidade.")
                     if st.toggle("📷 Anexar foto da não conformidade"):
-                        # Cria abas para as duas opções de foto
-                        photo_tab1, photo_tab2 = st.tabs(["Tirar Foto Agora", "Enviar da Galeria"])
-                        
-                        with photo_tab1:
-                            # Opção 1: Câmera em tempo real
-                            camera_photo = st.camera_input("Câmera", label_visibility="collapsed", key="nc_camera")
-                            if camera_photo:
-                                photo_evidence = camera_photo
-                        
-                        with photo_tab2:
-                            # Opção 2: Upload de arquivo
-                            gallery_photo = st.file_uploader("Galeria", type=["jpg", "jpeg", "png"], label_visibility="collapsed", key="nc_uploader")
-                            if gallery_photo:
-                                photo_evidence = gallery_photo
-
+                        photo_non_compliance = st.camera_input("Foto da Não Conformidade")
                 
                 with st.form("quick_inspection_form"):
                     location = st.session_state.location

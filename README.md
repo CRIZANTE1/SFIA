@@ -1,155 +1,42 @@
 # SFIA - Sistema de Fiscalização por Inteligência Artificial
-### Gerenciador de Inspeções de Extintores de Incêndio
+### Gerenciador de Inspeções de Equipamentos de Combate a Incêndio
 
-Este é um aplicativo web desenvolvido com Streamlit para otimizar e modernizar o processo de inspeção e manutenção de extintores de incêndio. A ferramenta utiliza a API Generative AI do Google (Gemini) para extrair dados de relatórios em PDF, automatiza o cálculo de vencimentos e planos de ação, e centraliza todos os registros em uma planilha Google Sheets.
+Este é um aplicativo web desenvolvido com Streamlit para otimizar e modernizar o processo de inspeção e manutenção de extintores de incêndio. A ferramenta utiliza a API Generative AI do Google (Gemini) para extrair dados de relatórios em PDF, automatiza o cálculo de vencimentos e planos de ação, centraliza todos os registros em uma planilha Google Sheets e oferece um conjunto de dashboards e mapas para uma gestão visual e proativa.
 
-O objetivo é aumentar a eficiência, padronizar os registros de acordo com a norma ABNT NBR 12962 e fornecer um sistema de gestão proativo para a segurança contra incêndio.
+O objetivo é aumentar a eficiência, padronizar os registros de acordo com as normas e fornecer um sistema de gestão completo para a segurança contra incêndio.
 
 ## ✨ Funcionalidades Principais
 
-*   **🔐 Autenticação de Usuários:** Sistema de login seguro via Google (OIDC), com diferenciação entre usuários administradores (acesso completo) e usuários de demonstração (acesso restrito).
-*   **🤖 Extração com IA (Registro em Lote):** Faça o upload de um relatório de inspeção ou manutenção em PDF e a IA extrai automaticamente os dados de todos os extintores listados, economizando horas de digitação manual.
-*   **📷 Inspeção Rápida com QR Code:** Utilize a câmera do celular ou webcam para escanear o QR Code de um extintor, visualizar seu último status e registrar uma nova inspeção de Nível 1 em segundos.
-*   **🗓️ Cálculo Automático de Vencimentos:** Com base na data e no nível do serviço registrado, o sistema calcula automaticamente as próximas datas de inspeção e manutenções (Nível 2 e Nível 3 - Ensaio Hidrostático).
-*   **📋 Geração de Planos de Ação:** Para cada extintor marcado como "Não Conforme", o sistema gera um plano de ação padronizado (ex: "Programar a repintura corretiva"), transformando registros em tarefas gerenciáveis.
-*   **📊 Histórico Centralizado e Pesquisável:** Todos os registros são salvos em uma planilha Google Sheets, que pode ser visualizada e pesquisada diretamente na página de "Histórico de Inspeções".
+*   **🔐 Autenticação Nativa (OIDC):** Sistema de login seguro via Google (OIDC) integrado ao Streamlit, com diferenciação entre usuários administradores (acesso completo) e usuários de demonstração (acesso restrito).
+*   **🤖 Extração com IA (Registro em Lote):** Faça o upload de um relatório de manutenção em PDF e a IA extrai automaticamente os dados de todos os extintores listados, economizando horas de digitação manual.
+*   **📱 Inspeção Rápida Georreferenciada:** Utilize a câmera do celular para escanear o QR Code de um extintor, visualizar seu status, capturar a geolocalização exata (GPS) e registrar uma nova inspeção de Nível 1 em segundos.
+*   **📊 Dashboard de Situação Atual:** Um painel de controle central que exibe métricas em tempo real (Total, OK, Vencido, Não Conforme) e permite a gestão de pendências.
+*   **🗺️ Mapa Interativo do SCI:** Visualize todos os equipamentos em um mapa, com cores por tipo e tamanho por capacidade, usando os dados de geolocalização capturados durante as inspeções.
+*   **✍️ Gestão de Ações Corretivas:** Para cada equipamento "Não Conforme", registre ações corretivas, anexe fotos de evidência e gerencie a substituição de equipamentos, mantendo um log detalhado de todas as ações.
+*   **📷 Registro Fotográfico:** Anexe fotos de não conformidades durante as inspeções ou como evidência de ações corretivas, com upload automático para o Google Drive.
+*   **🗓️ Cálculo Automático de Vencimentos:** Com base na data e no nível do serviço, o sistema calcula automaticamente as próximas datas de inspeção e manutenções.
+*   **📋 Geração de Planos de Ação Inteligentes:** Para cada não conformidade, o sistema sugere um plano de ação padronizado, transformando registros em tarefas gerenciáveis.
+*   **🛠️ Utilitário Gerador de QR Codes:** Gere QR Codes em lote para seus equipamentos, prontos para impressão e fixação.
+*   **📚 Histórico Centralizado e Pesquisável:** Todos os registros são salvos e podem ser visualizados, filtrados e pesquisados diretamente na aplicação.
 
 ## 🛠️ Tecnologias Utilizadas
 
 *   **Frontend:** [Streamlit](https://streamlit.io/)
 *   **Inteligência Artificial:** [Google AI (Gemini)](https://ai.google.dev/)
-*   **Backend & Banco de Dados:** [Google Sheets](https://www.google.com/sheets/about/)
+*   **Backend & Banco de Dados:** [Google Sheets](https://www.google.com/sheets/about/) e [Google Drive](https://www.google.com/drive/)
 *   **Linguagem:** Python 3.9+
-*   **Bibliotecas Principais:** `pandas`, `google-api-python-client`, `google-auth-oauthlib`, `opencv-python-headless`, `pyzbar`, `python-dateutil`.
+*   **Autenticação:** Google OIDC via Authlib
 
-## ⚙️ Configuração e Instalação
+## 📄 Licença e Uso
 
-Para executar este projeto localmente, siga os passos abaixo.
-
-### 1. Pré-requisitos
-
-*   Python 3.9 ou superior instalado.
-*   Uma conta Google e um projeto no [Google Cloud Platform](https://console.cloud.google.com/).
-
-### 2. Clone o Repositório
-
-```bash
-git clone <URL_DO_SEU_REPOSITORIO>
-cd <NOME_DA_PASTA_DO_PROJETO>
-Use code with caution.
-Markdown
-3. Crie um Ambiente Virtual e Instale as Dependências
-É uma boa prática usar um ambiente virtual para isolar as dependências do projeto.
-Generated bash
-# Criar ambiente virtual
-python -m venv venv
-
-# Ativar o ambiente (Windows)
-.\venv\Scripts\activate
-
-# Ativar o ambiente (Linux/macOS)
-source venv/bin/activate
-
-# Instalar as bibliotecas
-pip install -r requirements.txt
-Use code with caution.
-Bash
-4. Configure as Credenciais do Google
-Esta é a parte mais importante. O aplicativo precisa de credenciais para acessar o Google Sheets, Google Drive e a API de IA.
-Habilite as APIs no Google Cloud:
-Vá para o seu projeto no Google Cloud Console.
-Habilite as seguintes APIs: Google Drive API, Google Sheets API e Generative AI API (ou Vertex AI API).
-Crie uma Conta de Serviço (para acesso ao Google Sheets/Drive):
-Em "IAM & Admin" > "Service Accounts", crie uma nova conta de serviço.
-Dê a ela um nome (ex: sfia-sheets-editor).
-Crie uma chave para esta conta no formato JSON e faça o download. Renomeie este arquivo para credentials.json e coloque-o na pasta gdrive/. Não adicione este arquivo ao Git.
-Compartilhe sua Planilha Google e a Pasta no Google Drive com o e-mail da conta de serviço que você acabou de criar (ex: sfia-sheets-editor@<seu-projeto>.iam.gserviceaccount.com), dando a ela permissão de "Editor".
-Crie uma Credencial OAuth 2.0 (para Login de Usuário):
-Em "APIs & Services" > "Credentials", crie uma nova "OAuth 2.0 Client ID".
-Selecione "Web application".
-Em "Authorized redirect URIs", adicione: http://localhost:8501
-Salve e copie o Client ID e o Client Secret.
-Crie o arquivo secrets.toml:
-Na raiz do projeto, crie uma pasta chamada .streamlit.
-Dentro dela, crie um arquivo chamado secrets.toml.
-Cole o conteúdo abaixo no arquivo e preencha com suas próprias credenciais.
-Generated toml
-# .streamlit/secrets.toml
-
-# Credenciais para a API do Google Gemini
-[general]
-GOOGLE_API_KEY = "SUA_API_KEY_DO_GEMINI"
-
-# Credenciais da Conta de Serviço (para acesso ao Google Sheets)
-[connections.gsheets]
-type = "service_account"
-project_id = "SEU_ID_DE_PROJETO_GOOGLE_CLOUD"
-private_key_id = "ID_DA_CHAVE_PRIVADA_DO_JSON"
-private_key = "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n" # Copie e cole a chave inteira do JSON, mantendo as quebras de linha
-client_email = "EMAIL_DA_CONTA_DE_SERVIÇO"
-client_id = "ID_DA_CONTA_DE_SERVIÇO_DO_JSON"
-auth_uri = "https://accounts.google.com/o/oauth2/auth"
-token_uri = "https://oauth2.googleapis.com/token"
-auth_provider_x509_cert_url = "https://www.googleapis.com/oauth2/v1/certs"
-client_x509_cert_url = "URL_DO_CERTIFICADO_X509_DO_JSON"
-universe_domain = "googleapis.com"
-
-# Configuração para o Login OIDC do Streamlit
-[oidc]
-google_client_id = "SEU_CLIENT_ID_OAUTH_2.0"
-google_client_secret = "SEU_CLIENT_SECRET_OAUTH_2.0"
-google_redirect_uri = "http://localhost:8501" # Mantenha como está para testes locais
-cookie_secret = "GERAR_UM_SEGREDO_FORTE_E_ALEATORIO" # Use um gerador de senhas para criar uma string longa e aleatória
-cookie_expiry_days = 30
-Use code with caution.
-Toml
-5. Configure a Planilha Google
-Crie uma nova Planilha Google.
-Pegue o ID da planilha da URL (ex: .../d/ESTE_EH_O_ID/edit...) e coloque-o em gdrive/config.py.
-Crie duas abas com os nomes exatos:
-extintores
-adm
-Na aba adm, crie uma coluna na célula A1 com o título Nome. Adicione abaixo os nomes dos usuários do Google que terão acesso de administrador.
-Na aba extintores, cole a seguinte linha de cabeçalho na célula A1:
-Generated code
-numero_identificacao	tipo_agente	capacidade	marca_fabricante	ano_fabricacao	tipo_servico	data_servico	inspetor_responsavel	empresa_executante	data_proxima_inspecao	data_proxima_manutencao_2_nivel	data_proxima_manutencao_3_nivel	data_ultimo_ensaio_hidrostatico	aprovado_inspecao	observacoes_gerais	plano_de_acao
-Use code with caution.
-🚀 Como Executar
-Após concluir a configuração, execute o seguinte comando no terminal (com o ambiente virtual ativado):
-Generated bash
-streamlit run Pagina_Inicial.py
-Use code with caution.
-Bash
-O aplicativo será aberto no seu navegador.
-📁 Estrutura do Projeto
-Generated code
-sfia-extintores/
-├── .streamlit/
-│   └── secrets.toml        # ⚠️ Arquivo de segredos (NÃO versionar no Git)
-├── AI/
-│   ├── api_Operation.py    # Lógica de interação com a API Gemini
-│   └── ...
-├── auth/
-│   ├── auth_utils.py       # Funções de verificação de login e admin
-│   └── login_page.py       # Componentes da interface de login
-├── gdrive/
-│   ├── config.py           # IDs de planilhas/pastas e credenciais
-│   └── gdrive_upload.py    # Funções para upload e manipulação de planilhas
-├── operations/
-│   ├── extinguisher_operations.py # Lógica de negócio para inspeções
-│   └── history.py          # Função para carregar dados históricos
-├── pages/
-│   ├── 1_Inspecao_de_Extintores.py # Página principal com abas de inspeção
-│   └── 2_Historico_de_Inspecoes.py # Página para visualizar o histórico
-├── utils/
-│   └── prompts.py          # Armazena os prompts da IA
-├── Pagina_Inicial.py       # Ponto de entrada da aplicação
-├── requirements.txt        # Dependências do projeto
-└── README.md               # Este arquivo
-Use code with caution.
-📄 Licença
 Copyright 2024, Cristian Ferreira Carlos. Todos os direitos reservados.
-O uso, redistribuição ou modificação deste código é estritamente proibido sem a permissão expressa do autor.
+
+Este é um software proprietário. O uso, redistribuição, cópia ou modificação deste código é estritamente proibido sem a permissão expressa do autor. O acesso à aplicação é feito através de credenciais autorizadas.
+
+## 👤 Autor
+
+**Cristian Ferreira Carlos**
+*   [LinkedIn](https://www.linkedin.com/in/cristian-ferreira-carlos-256b19161/)
 👤 Autor
 Cristian Ferreira Carlos
 LinkedIn

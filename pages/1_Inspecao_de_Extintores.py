@@ -243,21 +243,24 @@ def main_inspection_page():
                         with st.spinner("Salvando..."):
                             photo_link_nc = upload_evidence_photo(
                                 photo_non_compliance, 
-                                st.session_state.get('qr_id'),
+                                st.session_state.qr_id,
                                 "nao_conformidade"
                             )
                             
-                            # last_record já foi obtido pela find_last_record e contém os dados consolidados
-                            last_record_data = st.session_state.last_record
+                            last_record = st.session_state.last_record
+                            new_record = last_record.copy()
                             
-                            # Prepara a base para o novo registro
-                            new_record = last_record_data.copy()
+                            existing_dates = {
+                                'data_proxima_inspecao': last_record.get('data_proxima_inspecao'),
+                                'data_proxima_manutencao_2_nivel': last_record.get('data_proxima_manutencao_2_nivel'),
+                                'data_proxima_manutencao_3_nivel': last_record.get('data_proxima_manutencao_3_nivel'),
+                                'data_ultimo_ensaio_hidrostatico': last_record.get('data_ultimo_ensaio_hidrostatico'),
+                            }
                             
-                            # Usa a função de cálculo passando o próprio last_record como base para as datas existentes
                             updated_dates = calculate_next_dates(
                                 service_date_str=date.today().isoformat(), 
                                 service_level="Inspeção", 
-                                existing_dates=last_record_data 
+                                existing_dates=existing_dates
                             )
                             
                             observacoes = "Inspeção de rotina OK." if status == "Conforme" else ", ".join(issues)
@@ -271,12 +274,11 @@ def main_inspection_page():
                                 'observacoes_gerais': observacoes,
                                 'plano_de_acao': generate_action_plan(temp_plan_record),
                                 'link_relatorio_pdf': None,
-                                'latitude': location.get('latitude') if location else None,
-                                'longitude': location.get('longitude') if location else None,
+                                'latitude': location['latitude'],
+                                'longitude': location['longitude'],
                                 'link_foto_nao_conformidade': photo_link_nc
                             })
                             
-                            # Adiciona as datas atualizadas ao novo registro
                             new_record.update(updated_dates)
                             
                             if save_inspection(new_record):
@@ -286,6 +288,13 @@ def main_inspection_page():
                                 st.session_state.location = None
                                 st.cache_data.clear()
                                 st.rerun()
+            else:
+                st.error(f"Nenhum registro encontrado para o ID '{st.session_state.qr_id}'.")
+            
+            if st.button("Inspecionar Outro Equipamento"):
+                st.session_state.qr_step = 'start'
+                st.session_state.location = None
+                st.rerun()
 
 # --- Boilerplate ---
 if not show_login_page(): st.stop()

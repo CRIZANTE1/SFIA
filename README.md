@@ -1,4 +1,4 @@
-# SFIA - Sistema de Fiscalização por Inteligência Artificial
+# ISF IA - Sistema de Inspeções com IA
 ### Gerenciador de Inspeções de Equipamentos de Combate a Incêndio
 
 Este é um aplicativo web desenvolvido com Streamlit para otimizar e modernizar o processo de inspeção e manutenção de extintores de incêndio. A ferramenta utiliza a API Generative AI do Google (Gemini) para extrair dados de relatórios em PDF, automatiza o cálculo de vencimentos e planos de ação, centraliza todos os registros em uma planilha Google Sheets e oferece um conjunto de dashboards e mapas para uma gestão visual e proativa.

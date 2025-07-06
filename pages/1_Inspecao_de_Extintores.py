@@ -43,34 +43,40 @@ def main_inspection_page():
                 extracted_list = process_extinguisher_pdf(st.session_state.uploaded_pdf_file)
                 if extracted_list:
                     
+                    # Carrega todo o histórico UMA VEZ para otimizar a busca
                     df_history = load_sheet_data("extintores")
-                    processed_list = []
                     
+                    processed_list = []
                     for item in extracted_list:
-                        # 1. Limpa e prepara os dados brutos da IA
-                        cleaned_item = clean_and_prepare_ia_data(item)
-                        if not cleaned_item:
-                            continue # Pula itens malformados
+                        if isinstance(item, dict):
+                            service_level = item.get('tipo_servico', 'Inspeção')
+                            ext_id = item.get('numero_identificacao')
+                            
+                            # Busca o último registro para obter as datas existentes
+                            last_record = find_last_record(df_history, ext_id, 'numero_identificacao')
+                            
+                            existing_dates = {}
+                            if last_record:
+                                existing_dates = {
+                                    'data_proxima_inspecao': last_record.get('data_proxima_inspecao'),
+                                    'data_proxima_manutencao_2_nivel': last_record.get('data_proxima_manutencao_2_nivel'),
+                                    'data_proxima_manutencao_3_nivel': last_record.get('data_proxima_manutencao_3_nivel'),
+                                    'data_ultimo_ensaio_hidrostatico': last_record.get('data_ultimo_ensaio_hidrostatico'),
+                                }
 
-                        # 2. Continua a lógica com os dados já limpos
-                        service_level = cleaned_item.get('tipo_servico', 'Inspeção')
-                        ext_id = cleaned_item.get('numero_identificacao')
-                        
-                        last_record_data = find_last_record(df_history, ext_id, 'numero_identificacao') or {}
-                        
-                        updated_dates = calculate_next_dates(
-                            service_date_str=cleaned_item.get('data_servico'),
-                            service_level=service_level,
-                            existing_dates=last_record_data
-                        )
-                        
-                        # 3. Monta o registro final
-                        final_item = last_record_data.copy()
-                        final_item.update(cleaned_item)
-                        final_item.update(updated_dates)
-                        final_item['plano_de_acao'] = generate_action_plan(final_item)
+                            # Chama a função de cálculo de datas, que saberá o que preservar
+                            # e o que sobrescrever com base no 'service_level'
+                            updated_dates = calculate_next_dates(
+                                service_date_str=item.get('data_servico'),
+                                service_level=service_level,
+                                existing_dates=existing_dates
+                            )
 
-                        processed_list.append(final_item)
+                            item['tipo_servico'] = service_level
+                            item['link_relatorio_pdf'] = "Aguardando salvamento..." if service_level in ["Manutenção Nível 2", "Manutenção Nível 3"] else "N/A"
+                            item.update(updated_dates) # Atualiza o item com as datas corretas
+                            item['plano_de_acao'] = generate_action_plan(item)
+                            processed_list.append(item)
 
                     st.session_state.processed_data = processed_list
                     st.session_state.batch_step = 'confirm'

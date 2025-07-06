@@ -8,7 +8,7 @@ from streamlit_js_eval import streamlit_js_eval
 # Adiciona o diretório raiz ao path para encontrar os outros módulos
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from operations.extinguisher_operations import (
-    process_extinguisher_pdf, calculate_next_dates, save_inspection, generate_action_plan, clean_and_prepare_ia_data
+    process_extinguisher_pdf, calculate_next_dates, save_inspection, generate_action_plan
 )
 from operations.history import load_sheet_data, find_last_record
 from operations.qr_inspection_utils import decode_qr_from_image

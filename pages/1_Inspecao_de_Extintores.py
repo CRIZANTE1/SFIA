@@ -8,7 +8,7 @@ from streamlit_js_eval import streamlit_js_eval
 # Adiciona o diretório raiz ao path para encontrar os outros módulos
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from operations.extinguisher_operations import (
-    process_extinguisher_pdf, calculate_next_dates, save_inspection, generate_action_plan
+    process_extinguisher_pdf, calculate_next_dates, save_inspection, generate_action_plan, clean_and_prepare_ia_data
 )
 from operations.history import load_sheet_data, find_last_record
 from operations.qr_inspection_utils import decode_qr_from_image
@@ -43,16 +43,17 @@ def main_inspection_page():
                 extracted_list = process_extinguisher_pdf(st.session_state.uploaded_pdf_file)
                 if extracted_list:
                     
-                    # Carrega todo o histórico UMA VEZ para otimizar a busca
                     df_history = load_sheet_data("extintores")
-                    
                     processed_list = []
+                    
                     for item in extracted_list:
+                        
+                        item = clean_and_prepare_ia_data(item)
+                        
                         if isinstance(item, dict):
                             service_level = item.get('tipo_servico', 'Inspeção')
                             ext_id = item.get('numero_identificacao')
                             
-                            # Busca o último registro para obter as datas existentes
                             last_record = find_last_record(df_history, ext_id, 'numero_identificacao')
                             
                             existing_dates = {}
@@ -64,19 +65,18 @@ def main_inspection_page():
                                     'data_ultimo_ensaio_hidrostatico': last_record.get('data_ultimo_ensaio_hidrostatico'),
                                 }
 
-                            # Chama a função de cálculo de datas, que saberá o que preservar
-                            # e o que sobrescrever com base no 'service_level'
                             updated_dates = calculate_next_dates(
                                 service_date_str=item.get('data_servico'),
                                 service_level=service_level,
                                 existing_dates=existing_dates
                             )
+                            
+                            # Copia o item original (agora limpo) e atualiza com as datas calculadas
+                            final_item = item.copy()
+                            final_item.update(updated_dates)
+                            final_item['plano_de_acao'] = generate_action_plan(final_item)
 
-                            item['tipo_servico'] = service_level
-                            item['link_relatorio_pdf'] = "Aguardando salvamento..." if service_level in ["Manutenção Nível 2", "Manutenção Nível 3"] else "N/A"
-                            item.update(updated_dates) # Atualiza o item com as datas corretas
-                            item['plano_de_acao'] = generate_action_plan(item)
-                            processed_list.append(item)
+                            processed_list.append(final_item)
 
                     st.session_state.processed_data = processed_list
                     st.session_state.batch_step = 'confirm'

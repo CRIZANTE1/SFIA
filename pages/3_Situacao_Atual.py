@@ -40,7 +40,7 @@ def get_consolidated_status_df(df_full, df_locais):
         latest_record_info = ext_df.iloc[-1]
         
         # 3. Encontra a data MAIS RECENTE para CADA tipo de serviço, buscando em todo o histórico do extintor
-        last_insp_date = ext_df[ext_df['tipo_servico'].isin(['Inspeção', 'Substituição'])]['data_servico'].max()
+        last_insp_date = ext_df['data_servico'].max()
         last_maint2_date = ext_df[ext_df['tipo_servico'] == 'Manutenção Nível 2']['data_servico'].max()
         # Busca a data do último ensaio hidrostático em todo o histórico, não apenas no último registro
         last_maint3_date = ext_df[ext_df['tipo_servico'] == 'Manutenção Nível 3']['data_servico'].max()

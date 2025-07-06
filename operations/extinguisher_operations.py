@@ -145,3 +145,28 @@ def save_inspection(data):
         # Mostra um erro mais detalhado para o usuário
         st.error(f"Erro ao salvar dados do equipamento {data.get('numero_identificacao')}: {e}")
         return False
+
+
+def clean_and_prepare_ia_data(ia_item):
+    """
+    Limpa e prepara um item extraído pela IA.
+    - Converte campos de data para o formato YYYY-MM-DD.
+    - Garante que campos essenciais existam.
+    """
+    if not isinstance(ia_item, dict):
+        return None
+
+    cleaned_item = ia_item.copy()
+
+    # Limpa os campos de data, removendo a hora
+    for key, value in cleaned_item.items():
+        if 'data' in key and isinstance(value, str):
+            try:
+                # Converte a string para data e formata de volta para YYYY-MM-DD
+                clean_date = pd.to_datetime(value).strftime('%Y-%m-%d')
+                cleaned_item[key] = clean_date
+            except (ValueError, TypeError):
+                # Se a conversão falhar, define como None para evitar erros
+                cleaned_item[key] = None
+    
+    return cleaned_item

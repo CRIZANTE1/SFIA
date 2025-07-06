@@ -49,17 +49,11 @@ def generate_action_plan(record):
     return "N/A" # Caso o status não seja 'Sim' ou 'Não'
 
 
+
 def calculate_next_dates(service_date_str, service_level, existing_dates=None):
     """
     Calcula as próximas datas de serviço, preservando as datas existentes que não são afetadas.
-    
-    Args:
-        service_date_str (str): A data do serviço que está sendo realizado.
-        service_level (str): O nível do serviço ('Inspeção', 'Manutenção Nível 2', etc.).
-        existing_dates (dict, optional): Um dicionário com as datas de vencimento atuais do equipamento.
-    
-    Returns:
-        dict: Um dicionário com todas as datas de vencimento atualizadas.
+    Esta função implementa a lógica correta de sobreposição de serviços.
     """
     if not service_date_str:
         return {}
@@ -76,24 +70,25 @@ def calculate_next_dates(service_date_str, service_level, existing_dates=None):
         'data_ultimo_ensaio_hidrostatico': None,
     }
 
-    if service_level == "Inspeção":
-        # Uma inspeção sempre define a próxima inspeção mensal
-        dates['data_proxima_inspecao'] = (service_date + relativedelta(months=1)).isoformat()
-    
-    elif service_level == "Manutenção Nível 2":
-        # Uma manutenção Nível 2 também conta como uma inspeção
-        dates['data_proxima_inspecao'] = (service_date + relativedelta(months=1)).isoformat()
-        dates['data_proxima_manutencao_2_nivel'] = (service_date + relativedelta(months=12)).isoformat()
 
-    elif service_level == "Manutenção Nível 3":
-        # Uma manutenção Nível 3 (Ensaio Hidrostático) zera TODOS os contadores
+    if service_level == "Manutenção Nível 3":
         dates['data_proxima_inspecao'] = (service_date + relativedelta(months=1)).isoformat()
         dates['data_proxima_manutencao_2_nivel'] = (service_date + relativedelta(months=12)).isoformat()
         dates['data_proxima_manutencao_3_nivel'] = (service_date + relativedelta(years=5)).isoformat()
         dates['data_ultimo_ensaio_hidrostatico'] = service_date.isoformat()
-        
-    return dates
+    
+    elif service_level == "Manutenção Nível 2":
+        dates['data_proxima_inspecao'] = (service_date + relativedelta(months=1)).isoformat()
+        dates['data_proxima_manutencao_2_nivel'] = (service_date + relativedelta(months=12)).isoformat()
 
+    elif service_level == "Inspeção":
+        dates['data_proxima_inspecao'] = (service_date + relativedelta(months=1)).isoformat()
+    
+    elif service_level == "Substituição":
+         dates['data_proxima_inspecao'] = (service_date + relativedelta(months=1)).isoformat()
+
+    return dates
+    
 def process_extinguisher_pdf(uploaded_file):
     """Processa um PDF de inspeção de extintor usando IA para extrair dados em lote."""
     if uploaded_file:
@@ -111,7 +106,6 @@ def process_extinguisher_pdf(uploaded_file):
 def save_inspection(data):
     """Salva os dados de UMA inspeção no Google Sheets, garantindo a serialização correta dos dados."""
     
-    # Função auxiliar para converter valores para tipos JSON-safe (string ou None)
     def to_safe_string(value):
         if pd.isna(value) or value is None:
             return None  # Deixa a célula vazia na planilha
@@ -119,7 +113,6 @@ def save_inspection(data):
             return value.strftime('%Y-%m-%d') # Converte data/timestamp para string
         return str(value) # Converte qualquer outra coisa para string
 
-    # Monta a linha de dados, aplicando a conversão em cada item
     data_row = [
         to_safe_string(data.get('numero_identificacao')),
         to_safe_string(data.get('numero_selo_inmetro')),

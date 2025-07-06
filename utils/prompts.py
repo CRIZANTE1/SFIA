@@ -22,7 +22,7 @@ def get_extinguisher_inspection_prompt():
     5.  `capacidade`: Extraia da coluna "CAPAC. CARGA" ou do tipo (ex: "PQS 4,5KG").
     6.  `marca_fabricante`: Extraia da coluna "FABRIC. OU MARCA".
     7.  `ano_fabricacao`: Extraia da coluna "ANO FABRIC.".
-    8.  `data_servico`: Use a data global do relatório (ex: "Data saída....:" ou a data no cabeçalho). Formato YYYY-MM-DD.
+    8.  `data_servico`: Use a data global do relatório (ex: "Data saída....:" ou a data no cabeçalho). Formato YYYY-MM-DD não inclua hora.
     9.  `empresa_executante`: Nome da empresa que realizou o serviço.
     10. `inspetor_responsavel`: Nome do responsável técnico.
     11. `aprovado_inspecao`: Da coluna "STATUS" ou "INSPEÇÃO FINAL" ('CONFORME'/'A' = "Sim", 'N/CONFORME'/'R' = "Não").

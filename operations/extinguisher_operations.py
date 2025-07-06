@@ -49,43 +49,48 @@ def generate_action_plan(record):
     return "N/A" # Caso o status não seja 'Sim' ou 'Não'
 
 
-
 def calculate_next_dates(service_date_str, service_level, existing_dates=None):
     """
-    Calcula as próximas datas de serviço, preservando as datas existentes que não são afetadas.
-    Esta função implementa a lógica correta de sobreposição de serviços.
+    Calcula as próximas datas de serviço, retornando-as como strings formatadas.
     """
-    if not service_date_str:
-        return {}
+    if not service_date_str: return {}
         
     try:
         service_date = pd.to_datetime(service_date_str).date()
     except (ValueError, TypeError):
         return {} 
 
-    dates = existing_dates.copy() if existing_dates else {
-        'data_proxima_inspecao': None,
-        'data_proxima_manutencao_2_nivel': None,
-        'data_proxima_manutencao_3_nivel': None,
-        'data_ultimo_ensaio_hidrostatico': None,
-    }
+    dates = existing_dates.copy() if existing_dates else {}
 
+    # Função auxiliar para converter datetime para string 'YYYY-MM-DD' ou None
+    def to_iso_string(dt_object):
+        return dt_object.isoformat() if dt_object else None
 
     if service_level == "Manutenção Nível 3":
-        dates['data_proxima_inspecao'] = (service_date + relativedelta(months=1)).isoformat()
-        dates['data_proxima_manutencao_2_nivel'] = (service_date + relativedelta(months=12)).isoformat()
-        dates['data_proxima_manutencao_3_nivel'] = (service_date + relativedelta(years=5)).isoformat()
-        dates['data_ultimo_ensaio_hidrostatico'] = service_date.isoformat()
+        dates['data_proxima_inspecao'] = (service_date + relativedelta(months=1))
+        dates['data_proxima_manutencao_2_nivel'] = (service_date + relativedelta(months=12))
+        dates['data_proxima_manutencao_3_nivel'] = (service_date + relativedelta(years=5))
+        dates['data_ultimo_ensaio_hidrostatico'] = service_date
     
     elif service_level == "Manutenção Nível 2":
-        dates['data_proxima_inspecao'] = (service_date + relativedelta(months=1)).isoformat()
-        dates['data_proxima_manutencao_2_nivel'] = (service_date + relativedelta(months=12)).isoformat()
+        dates['data_proxima_inspecao'] = (service_date + relativedelta(months=1))
+        dates['data_proxima_manutencao_2_nivel'] = (service_date + relativedelta(months=12))
 
-    elif service_level == "Inspeção":
-        dates['data_proxima_inspecao'] = (service_date + relativedelta(months=1)).isoformat()
-    
-    elif service_level == "Substituição":
-         dates['data_proxima_inspecao'] = (service_date + relativedelta(months=1)).isoformat()
+    elif service_level in ["Inspeção", "Substituição"]:
+        dates['data_proxima_inspecao'] = (service_date + relativedelta(months=1))
+
+    # Converte todos os valores de data no dicionário para string ou None antes de retornar
+    for key, value in dates.items():
+        if isinstance(value, (date, pd.Timestamp)):
+            dates[key] = value.strftime('%Y-%m-%d')
+        elif isinstance(value, str):
+            # Garante que as strings de data já existentes também não tenham hora
+            try:
+                dates[key] = pd.to_datetime(value).strftime('%Y-%m-%d')
+            except (ValueError, TypeError):
+                dates[key] = None # Se for uma string inválida, anula
+        elif pd.isna(value):
+            dates[key] = None
 
     return dates
     

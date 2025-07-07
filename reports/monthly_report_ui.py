@@ -77,19 +77,43 @@ def show_monthly_report_interface():
         selected_month_name = st.selectbox("Selecione o Mês:", months, index=default_month_index, key="report_month_name")
         selected_month_num = months.index(selected_month_name) + 1
 
+    # Usa o session_state para controlar se o relatório deve ser exibido
     if st.button("Gerar Relatório", type="primary", key="generate_report_btn"):
-        month = selected_month_num
-        year = selected_year
+        st.session_state.run_report = True
+        st.session_state.report_month = selected_month_num
+        st.session_state.report_year = selected_year
+    
+    # O relatório só é gerado e exibido se st.session_state.run_report for True
+    if st.session_state.get('run_report', False):
+        month = st.session_state.report_month
+        year = st.session_state.report_year
         
         with st.spinner(f"Carregando dados para {month:02d}/{year}..."):
             df_inspections = load_sheet_data("extintores")
             df_action_log = load_sheet_data("log_acoes")
-            # Futuramente, você carregaria o df_hoses aqui também
 
-        # --- Área de Impressão com Abas ---
+        # --- ÁREA DE IMPRESSÃO ---
         with st.container(border=True):
-            if st.button("🖨️ Imprimir / Salvar como PDF", key="print_btn"):
-                streamlit_js_eval(js_expressions="window.print()")
+            
+            print_button_html = """
+            <style>
+            .print-button {
+                background-color: #FF4B4B;
+                color: white;
+                padding: 0.5rem 1rem;
+                border-radius: 0.5rem;
+                border: none;
+                cursor: pointer;
+                font-weight: bold;
+                margin-bottom: 1rem;
+            }
+            </style>
+            <button onclick="window.print()" class="print-button">
+                🖨️ Imprimir / Salvar como PDF
+            </button>
+            """
+            st.markdown(print_button_html, unsafe_allow_html=True)
+            # --- FIM DA CORREÇÃO ---
             
             tab_ext, tab_hose = st.tabs(["🔥 Relatório de Extintores", "💧 Relatório de Mangueiras (em breve)"])
 

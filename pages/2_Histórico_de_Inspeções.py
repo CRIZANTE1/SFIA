@@ -13,6 +13,7 @@ from auth.auth_utils import is_admin_user
 from operations.demo_page import show_demo_page
 from reports.monthly_report_ui import show_monthly_report_interface
 
+
 def format_dataframe_for_display(df, is_log=False):
     """
     Prepara o DataFrame para exibição, renomeando colunas e formatando.

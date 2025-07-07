@@ -108,15 +108,22 @@ def process_extinguisher_pdf(uploaded_file):
     return None
 
 
+
 def save_inspection(data):
     """Salva os dados de UMA inspeção no Google Sheets, garantindo a serialização correta dos dados."""
     
     def to_safe_string(value):
         if pd.isna(value) or value is None:
-            return None  # Deixa a célula vazia na planilha
+            return None
         if isinstance(value, (pd.Timestamp, date)):
-            return value.strftime('%Y-%m-%d') # Converte data/timestamp para string
-        return str(value) # Converte qualquer outra coisa para string
+            return value.strftime('%Y-%m-%d')
+        return str(value)
+
+    lat = data.get('latitude')
+    lon = data.get('longitude')
+
+    lat_str = str(lat).replace('.', ',') if lat is not None else None
+    lon_str = str(lon).replace('.', ',') if lon is not None else None
 
     data_row = [
         to_safe_string(data.get('numero_identificacao')),
@@ -137,8 +144,8 @@ def save_inspection(data):
         to_safe_string(data.get('observacoes_gerais')),
         to_safe_string(data.get('plano_de_acao')),
         to_safe_string(data.get('link_relatorio_pdf')),
-        to_safe_string(data.get('latitude')),
-        to_safe_string(data.get('longitude')),
+        lat_str, 
+        lon_str, 
         to_safe_string(data.get('link_foto_nao_conformidade'))
     ]
     
@@ -147,7 +154,6 @@ def save_inspection(data):
         uploader.append_data_to_sheet(EXTINGUISHER_SHEET_NAME, data_row)
         return True
     except Exception as e:
-        # Mostra um erro mais detalhado para o usuário
         st.error(f"Erro ao salvar dados do equipamento {data.get('numero_identificacao')}: {e}")
         return False
 

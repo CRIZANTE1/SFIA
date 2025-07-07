@@ -85,8 +85,9 @@ def show_monthly_report_interface():
     
     # O relatório só é gerado e exibido se st.session_state.run_report for True
     if st.session_state.get('run_report', False):
-        month = st.session_state.report_month
         year = st.session_state.report_year
+        month_name = st.session_state.report_month_name
+        month = months.index(month_name) + 1
         
         with st.spinner(f"Carregando dados para {month:02d}/{year}..."):
             df_inspections = load_sheet_data("extintores")

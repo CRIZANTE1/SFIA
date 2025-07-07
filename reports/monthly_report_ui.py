@@ -1,5 +1,3 @@
-# reports/monthly_report_ui.py
-
 import streamlit as st
 import pandas as pd
 from datetime import datetime

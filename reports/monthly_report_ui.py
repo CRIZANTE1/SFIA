@@ -38,10 +38,8 @@ def _generate_extinguisher_report_content(df_inspections_month, df_action_log, m
                 st.markdown("---")
                 st.subheader("Evidência da Não Conformidade")
                 if pd.notna(photo_nc_link) and photo_nc_link.strip():
-                    # Tenta exibir a imagem, mas também fornece o link como fallback
-                    st.image(photo_nc_link, caption="Foto da Não Conformidade", width=300)
-                    st.markdown(f"**Link da Evidência:** [Abrir Foto]({photo_nc_link})") # <-- ADICIONADO AQUI
-                else:
+                    #st.image(photo_nc_link, caption="Foto da Não Conformidade", width=300)
+                    st.markdown(f"**Link da Evidência:** [Abrir Foto]({photo_nc_link})") 
                     st.info("Nenhuma foto de não conformidade foi anexada.")
                 
                 st.markdown("---")
@@ -65,7 +63,7 @@ def _generate_extinguisher_report_content(df_inspections_month, df_action_log, m
                     
                     # Exibe o link da foto da ação corretiva
                     if pd.notna(photo_action_link) and photo_action_link.strip(): 
-                        st.image(photo_action_link, caption="Foto da Ação Corretiva", width=300) 
+                        #st.image(photo_action_link, caption="Foto da Ação Corretiva", width=300) 
                         st.markdown(f"**Link da Evidência da Correção:** [Abrir Foto]({photo_action_link})") 
                     else:
                         st.info("Nenhuma foto de evidência da correção foi anexada.")

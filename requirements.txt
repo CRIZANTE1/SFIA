@@ -22,7 +22,12 @@ google-auth-oauthlib>=1.1.0
 google-generativeai
 authlib
 
+# Comunicação HTTP (para baixar imagens)
 # ========================
+requests 
+# ========================
+
+
 # Processamento de Imagem e QR Code
 # ========================
 opencv-python-headless # Já inclui o detector de QR Code

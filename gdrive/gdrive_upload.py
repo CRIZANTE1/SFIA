@@ -31,6 +31,7 @@ class GoogleDriveUploader:
             st.error(f"Erro ao inicializar serviços do Google: {str(e)}")
             raise
 
+
     def upload_file(self, arquivo, novo_nome=None):
         """
         Faz upload do arquivo para o Google Drive
@@ -52,12 +53,23 @@ class GoogleDriveUploader:
                 mimetype=arquivo.type,
                 resumable=True
             )
+            
             file = self.drive_service.files().create(
                 body=file_metadata,
                 media_body=media,
-                fields='id,webViewLink'
+                fields='id'  
             ).execute()
-            return file.get('webViewLink')
+            
+            file_id = file.get('id') 
+
+            self.drive_service.permissions().create( 
+                fileId=file_id,
+                body={'type': 'anyone', 'role': 'reader'}
+            ).execute()
+            
+            direct_link = f"https://drive.google.com/uc?export=view&id={file_id}" 
+            
+            return direct_link
 
         except Exception as e:
             if "HttpError 404" in str(e) and GDRIVE_FOLDER_ID in str(e):

@@ -1,5 +1,3 @@
-# Arquivo: config/page_config.py
-
 import streamlit as st
 import os
 

@@ -60,10 +60,16 @@ def format_dataframe_for_display(df, is_log=False):
     return df[cols_to_display].rename(columns=display_columns)
 def show_history_page():
     st.title("Histórico e Logs do Sistema")
-    
     st.markdown("---")
-    if st.toggle("📄 Gerar Relatório Mensal de Inspeções"):
-        show_monthly_report_interface()
+    st.session_state.setdefault('show_report_generator', False)
+    if st.toggle("📄 Gerar Relatório Mensal de Inspeções", key='report_toggle'):
+        st.session_state.show_report_generator = True
+    else:
+        st.session_state.show_report_generator = False
+
+    if st.session_state.show_report_generator:
+        with st.container(border=True):
+            show_monthly_report_interface()
     st.markdown("---")
     
     if st.button("Limpar Cache e Recarregar Dados"):

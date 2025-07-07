@@ -53,23 +53,12 @@ class GoogleDriveUploader:
                 mimetype=arquivo.type,
                 resumable=True
             )
-            
             file = self.drive_service.files().create(
                 body=file_metadata,
                 media_body=media,
-                fields='id'  
+                fields='id,webViewLink'
             ).execute()
-            
-            file_id = file.get('id') 
-
-            self.drive_service.permissions().create( 
-                fileId=file_id,
-                body={'type': 'anyone', 'role': 'reader'}
-            ).execute()
-            
-            direct_link = f"https://drive.google.com/uc?export=view&id={file_id}" 
-            
-            return direct_link
+            return file.get('webViewLink')
 
         except Exception as e:
             if "HttpError 404" in str(e) and GDRIVE_FOLDER_ID in str(e):

@@ -63,6 +63,8 @@ def _generate_extinguisher_report_content(df_inspections_month, df_action_log, m
                 else:
                     st.error("Ação Corretiva Pendente.")
 
+# Em: reports/monthly_report_ui.py
+
 def show_monthly_report_interface():
     """Função principal que desenha a interface de geração de relatórios."""
     st.title("📄 Emissão de Relatórios Mensais")
@@ -70,20 +72,15 @@ def show_monthly_report_interface():
     today = datetime.now()
     col1, col2 = st.columns(2)
     with col1:
-        selected_year = st.selectbox("Selecione o Ano:", range(today.year, today.year - 5, -1), index=0, key="report_year")
+        st.selectbox("Selecione o Ano:", range(today.year, today.year - 5, -1), index=0, key="report_year")
     with col2:
         months = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
         default_month_index = today.month - 2 if today.day < 5 else today.month - 1
-        selected_month_name = st.selectbox("Selecione o Mês:", months, index=default_month_index, key="report_month_name")
-        selected_month_num = months.index(selected_month_name) + 1
-
-    # Usa o session_state para controlar se o relatório deve ser exibido
+        st.selectbox("Selecione o Mês:", months, index=default_month_index, key="report_month_name")
+        
     if st.button("Gerar Relatório", type="primary", key="generate_report_btn"):
         st.session_state.run_report = True
-        st.session_state.report_month = selected_month_num
-        st.session_state.report_year = selected_year
     
-    # O relatório só é gerado e exibido se st.session_state.run_report for True
     if st.session_state.get('run_report', False):
         year = st.session_state.report_year
         month_name = st.session_state.report_month_name
@@ -96,24 +93,15 @@ def show_monthly_report_interface():
         # --- ÁREA DE IMPRESSÃO ---
         with st.container(border=True):
             
-            print_button_html = """
-            <style>
-            .print-button {
-                background-color: #FF4B4B;
-                color: white;
-                padding: 0.5rem 1rem;
-                border-radius: 0.5rem;
-                border: none;
-                cursor: pointer;
-                font-weight: bold;
-                margin-bottom: 1rem;
-            }
-            </style>
-            <button onclick="window.print()" class="print-button">
-                🖨️ Imprimir / Salvar como PDF
-            </button>
-            """
-            st.markdown(print_button_html, unsafe_allow_html=True)
+            # --- BOTÃO DE IMPRESSÃO CORRIGIDO E ROBUSTO ---
+            # 1. Cria um placeholder para o botão.
+            print_button_placeholder = st.empty()
+            
+            # 2. Usa um formulário para garantir que a ação de clique seja registrada antes da re-renderização.
+            with print_button_placeholder.form(key="print_form"):
+                if st.form_submit_button("🖨️ Imprimir / Salvar como PDF"):
+                    # 3. Executa o JavaScript. O 'key' garante que ele só rode uma vez por clique.
+                    streamlit_js_eval(js_expressions="window.print()", key="print_js")
             # --- FIM DA CORREÇÃO ---
             
             tab_ext, tab_hose = st.tabs(["🔥 Relatório de Extintores", "💧 Relatório de Mangueiras (em breve)"])

@@ -34,7 +34,7 @@ def _generate_extinguisher_report_content(df_inspections_month, df_action_log, m
                 st.markdown("---")
                 st.subheader("Evidência e Ação Corretiva")
                 if pd.notna(photo_nc_link):
-                    st.write(f"Tentando carregar a imagem do link: {photo_nc_link}") 
+                    st.write(f"Imagem do link: {photo_nc_link}") 
                     st.image(photo_nc_link, caption="Foto da Não Conformidade", width=300)
                 else:
                     st.info("Nenhuma foto de não conformidade foi anexada.")

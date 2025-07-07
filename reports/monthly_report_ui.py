@@ -4,6 +4,7 @@ from datetime import datetime
 from streamlit_js_eval import streamlit_js_eval
 import sys
 import os
+import json
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from operations.history import load_sheet_data
@@ -103,7 +104,8 @@ def show_monthly_report_interface():
         
     if st.button("Gerar e Imprimir Relatório", type="primary", key="generate_report_btn"):
         year = st.session_state.report_year
-        month = months.index(selected_month_name) + 1
+        month_name = st.session_state.report_month_name
+        month = months.index(month_name) + 1
         
         with st.spinner(f"Gerando relatório para {month:02d}/{year}..."):
             df_inspections = load_sheet_data("extintores")
@@ -121,16 +123,23 @@ def show_monthly_report_interface():
             # 1. Gera o HTML completo do relatório
             report_html = generate_report_html(df_inspections_month, df_action_log, month, year)
             
-            # 2. Prepara o código JavaScript para injetar o HTML e imprimir
-            #    Usamos JSON.stringify para passar a string HTML de forma segura.
+            
             js_code = f"""
-                const reportHtml = {pd.io.json.dumps(report_html)};
+                const reportHtml = {json.dumps(report_html)};
                 const printWindow = window.open('', '_blank');
-                printWindow.document.write(reportHtml);
-                printWindow.document.close();
-                printWindow.focus();
-                setTimeout(() => {{ printWindow.print(); }}, 500); // Pequeno delay para garantir que as imagens carreguem
+                if (printWindow) {{
+                    printWindow.document.write(reportHtml);
+                    printWindow.document.close();
+                    printWindow.focus();
+                    setTimeout(() => {{ 
+                        printWindow.print();
+                        printWindow.close(); // Fecha a aba após a impressão
+                    }}, 500);
+                }} else {{
+                    alert('Por favor, desabilite o bloqueador de pop-ups para este site para poder imprimir o relatório.');
+                }}
             """
             
             # 3. Executa o JavaScript
             streamlit_js_eval(js_expressions=js_code, key="print_report_js")
+            st.success("Relatório enviado para impressão. Verifique a nova aba ou janela que foi aberta.")

@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from streamlit_js_eval import streamlit_js_eval
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from operations.history import load_sheet_data
 
 def _generate_extinguisher_report_content(df_inspections_month, df_action_log, month, year):

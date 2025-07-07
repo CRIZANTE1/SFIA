@@ -1,0 +1,14 @@
+@media print {
+    .main > div:first-child {
+        display: none;
+    }
+    
+    [data-testid="stSidebar"], [data-testid="stHeader"] {
+        display: none !important;
+    }
+
+    [data-testid="block-container"] {
+        width: 100% !important;
+        padding: 0 !important;
+    }
+}

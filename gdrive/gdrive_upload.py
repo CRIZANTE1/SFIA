@@ -72,7 +72,55 @@ class GoogleDriveUploader:
                     os.remove(temp_path)
                 except Exception as e_remove:
                     st.error(f"Erro ao remover arquivo temporário '{temp_path}': {str(e_remove)}")
+                    
+    def upload_image_and_get_direct_link(self, image_file, novo_nome=None):
+        """
+        Faz upload de uma IMAGEM, define a permissão como pública
+        e retorna um link direto para exibição no Streamlit.
+        """
+        if not image_file:
+            return None
+            
+        temp_file = None
+        try:
+            # Salva o arquivo temporariamente
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(novo_nome or image_file.name)[1])
+            temp_file.write(image_file.getbuffer())
+            temp_file.close()
+            temp_path = temp_file.name
 
+            file_metadata = {
+                'name': novo_nome if novo_nome else image_file.name,
+                'parents': [GDRIVE_FOLDER_ID]
+            }
+            media = MediaFileUpload(temp_path, mimetype=image_file.type, resumable=True)
+            
+            # 1. Faz o upload e pede apenas o ID
+            file = self.drive_service.files().create(
+                body=file_metadata,
+                media_body=media,
+                fields='id'
+            ).execute()
+            
+            file_id = file.get('id')
+
+            # 2. Define a permissão pública
+            self.drive_service.permissions().create(
+                fileId=file_id,
+                body={'type': 'anyone', 'role': 'reader'}
+            ).execute()
+            
+            # 3. Constrói e retorna o link direto
+            direct_link = f"https://drive.google.com/uc?export=view&id={file_id}"
+            return direct_link
+
+        except Exception as e:
+            st.error(f"Erro ao fazer upload da imagem: {e}")
+            raise
+        finally:
+            if temp_file and os.path.exists(temp_path):
+                os.remove(temp_path)
+                
     def append_data_to_sheet(self, sheet_name, data_row):
         """
         Adiciona uma nova linha de dados à planilha do Google Sheets.

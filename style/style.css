@@ -1,14 +1,21 @@
 @media print {
-    .main > div:first-child {
-        display: none;
-    }
-    
-    [data-testid="stSidebar"], [data-testid="stHeader"] {
+    [data-testid="stSidebar"], 
+    [data-testid="stHeader"],
+    [data-testid="stToolbar"],
+    .stButton, /* Esconde TODOS os botões */
+    .stFileUploader,
+    .stTabs {
         display: none !important;
     }
 
     [data-testid="block-container"] {
         width: 100% !important;
-        padding: 0 !important;
+        padding: 1rem 1rem !important; 
+        margin: 0 !important;
+    }
+
+    [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlockBorderWrapper"] {
+        border: 1px solid #ccc !important; /* Adiciona uma borda mais visível */
+        box-shadow: none !important; /* Remove sombras */
     }
 }

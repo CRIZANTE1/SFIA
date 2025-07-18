@@ -62,10 +62,10 @@ def get_consolidated_status_df(df_full, df_locais):
         
         if latest_record_info.get('plano_de_acao') == "FORA DE OPERAÇÃO (SUBSTITUÍDO)":
             status_atual = "FORA DE OPERAÇÃO"
-        elif proximo_vencimento_real < today_ts: 
-            status_atual = "VENCIDO"
         elif latest_record_info.get('aprovado_inspecao') == 'Não': 
             status_atual = "NÃO CONFORME (Aguardando Ação)"
+        elif proximo_vencimento_real < today_ts: 
+            status_atual = "VENCIDO"
 
         if status_atual == "FORA DE OPERAÇÃO":
             continue

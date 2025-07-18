@@ -44,7 +44,7 @@ def load_sheet_data(sheet_name):
 def find_last_record(df, search_value, column_name):
     """
     Encontra o último registro e consolida as datas de vencimento de todo o histórico,
-    retornando um dicionário com objetos de data (Timestamps).
+    retornando tudo como strings formatadas ou None.
     """
     if df.empty or column_name not in df.columns:
         return None
@@ -53,27 +53,41 @@ def find_last_record(df, search_value, column_name):
     if records.empty:
         return None
 
+    # Lista de todas as colunas que podem conter datas
     date_columns = [
         'data_servico', 'data_proxima_inspecao', 'data_proxima_manutencao_2_nivel',
         'data_proxima_manutencao_3_nivel', 'data_ultimo_ensaio_hidrostatico'
     ]
     
+    # Converte todas as colunas de data de uma vez, tratando erros
     for col in date_columns:
         if col in records.columns:
             records[col] = pd.to_datetime(records[col], errors='coerce')
 
-    records = records.dropna(subset=['data_servico'])
+    records.dropna(subset=['data_servico'], inplace=True)
     if records.empty:
         return None
 
+    # Pega o último registro cronológico como um dicionário
     latest_record_dict = records.sort_values(by='data_servico', ascending=False).iloc[0].to_dict()
 
+    # Varre todo o histórico para encontrar a data MÁXIMA de cada coluna de vencimento
     last_valid_n2_date = records['data_proxima_manutencao_2_nivel'].max()
     last_valid_n3_date = records['data_proxima_manutencao_3_nivel'].max()
     last_valid_hydro_date = records['data_ultimo_ensaio_hidrostatico'].max()
 
+    # Sobrescreve as datas no dicionário final com os valores consolidados
     latest_record_dict['data_proxima_manutencao_2_nivel'] = last_valid_n2_date
     latest_record_dict['data_proxima_manutencao_3_nivel'] = last_valid_n3_date
     latest_record_dict['data_ultimo_ensaio_hidrostatico'] = last_valid_hydro_date
-   
+
+    # --- CORREÇÃO APLICADA: Garante que todas as datas no dicionário de retorno sejam strings ---
+    for key, value in latest_record_dict.items():
+        if isinstance(value, pd.Timestamp):
+            # Formata o Timestamp para string 'YYYY-MM-DD'
+            latest_record_dict[key] = value.strftime('%Y-%m-%d')
+        elif pd.isna(value):
+            # Garante que valores nulos (NaT) se tornem None
+            latest_record_dict[key] = None
+            
     return latest_record_dict

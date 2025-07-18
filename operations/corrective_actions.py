@@ -53,7 +53,8 @@ def save_corrective_action(original_record, substitute_last_record, action_detai
                 'longitude': original_record.get('longitude')
             }
             new_equip_record['plano_de_acao'] = generate_action_plan(new_equip_record)
-            new_equip_record.update(calculate_next_dates(new_equip_record['data_servico'], 'Inspeção', new_equip_record.get('tipo_agente')))
+            # O terceiro argumento foi removido, pois era uma string ('tipo_agente') em vez de um dicionário.
+            new_equip_record.update(calculate_next_dates(new_equip_record['data_servico'], 'Inspeção'))
             save_inspection(new_equip_record)
 
         # --- Cenário 2: Ação Corretiva Simples (sem substituição) ---
@@ -69,7 +70,8 @@ def save_corrective_action(original_record, substitute_last_record, action_detai
                 'longitude': original_record.get('longitude'),
                 'link_relatorio_pdf': None
             })
-            resolved_inspection.update(calculate_next_dates(resolved_inspection['data_servico'], 'Inspeção', resolved_inspection.get('tipo_agente')))
+            # O terceiro argumento foi removido, pois era uma string ('tipo_agente') em vez de um dicionário.
+            resolved_inspection.update(calculate_next_dates(resolved_inspection['data_servico'], 'Inspeção'))
             resolved_inspection['plano_de_acao'] = generate_action_plan(resolved_inspection)
             save_inspection(resolved_inspection)
 

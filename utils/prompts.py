@@ -52,3 +52,59 @@ def get_extinguisher_inspection_prompt():
       ]
     }
     """
+def get_hose_inspection_prompt():
+    """
+    Retorna um prompt para extrair dados de certificados de inspeção e manutenção de mangueiras de incêndio.
+    """
+    return """
+    Você é um especialista em analisar certificados de inspeção de mangueiras de incêndio (NBR 12779).
+    Sua tarefa é analisar o documento PDF e extrair informações para CADA mangueira listada na tabela principal.
+    O identificador principal e permanente é o "Número".
+
+    **Para cada mangueira (cada linha da tabela), extraia os seguintes campos:**
+
+    1.  `id_mangueira`: Extraia da coluna "Número". Este é o campo chave.
+    2.  `marca`: Extraia da coluna "Marca do Duto Flexível".
+    3.  `diametro`: Extraia da coluna "Diâmetro".
+    4.  `tipo`: Extraia da coluna "Tipo".
+    5.  `comprimento`: Extraia da coluna "Comprimento Nominal".
+    6.  `ano_fabricacao`: Extraia da coluna "Mês/Ano Fabricação". Retorne apenas o ano.
+    7.  `data_inspecao`: Use a data global do relatório, especificamente a "Data saída". Formate como YYYY-MM-DD.
+    8.  `empresa_executante`: Extraia do campo "Vendedor" ou do nome da empresa no topo.
+    9.  `inspetor_responsavel`: Extraia do campo "Responsável Técnico".
+    10. `resultado`: Extraia da coluna "Resultado Final". 'A' significa "Aprovado".
+
+    **Formato de Saída OBRIGATÓRIO:**
+    Retorne a resposta APENAS como um objeto JSON com uma chave "mangueiras" contendo uma LISTA de objetos,
+    onde cada objeto representa uma mangueira.
+
+    Exemplo de formato de saída obrigatório:
+    {
+      "mangueiras": [
+        {
+          "id_mangueira": "04",
+          "marca": "KIDDE BRASIL",
+          "diametro": "2 1/2",
+          "tipo": "5",
+          "comprimento": "15,00",
+          "ano_fabricacao": "2011",
+          "data_inspecao": "2024-10-04",
+          "empresa_executante": "EXTINTORES ARMENIA",
+          "inspetor_responsavel": "Renato Busch",
+          "resultado": "A"
+        },
+        {
+          "id_mangueira": "48",
+          "marca": "KIDDE BRASIL",
+          "diametro": "2 1/2",
+          "tipo": "5",
+          "comprimento": "15,00",
+          "ano_fabricacao": "2011",
+          "data_inspecao": "2024-10-04",
+          "empresa_executante": "EXTINTORES ARMENIA",
+          "inspetor_responsavel": "Renato Busch",
+          "resultado": "A"
+        }
+      ]
+    }
+    """    

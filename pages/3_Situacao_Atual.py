@@ -14,7 +14,7 @@ from auth.login_page import show_login_page, show_user_header, show_logout_butto
 from auth.auth_utils import is_admin_user, get_user_display_name
 from operations.demo_page import show_demo_page
 from config.page_config import set_page_config 
-from gdrive.config import HOSE_SHEET_NAME, SHELTER_SHEET_NAME, INSPECTIONS_SHELTER_SHEET_NAME
+from gdrive.config import HOSE_SHEET_NAME, SHELTER_SHEET_NAME, INSPECTIONS_SHELTER_SHEET_NAME, LOG_SHELTER_SHEET_NAME
 from reports.reports_pdf import generate_shelters_html
 from operations.shelter_operations import save_shelter_action_log, save_shelter_inspection
 from operations.corrective_actions import save_corrective_action

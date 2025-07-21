@@ -4,6 +4,7 @@ from gdrive.gdrive_upload import GoogleDriveUploader
 from gdrive.config import SHELTER_SHEET_NAME, INSPECTIONS_SHELTER_SHEET_NAME, LOG_SHELTER_SHEET_NAME
 from datetime import date 
 from dateutil.relativedelta import relativedelta 
+
 def save_shelter_inventory(shelter_id, client, items_dict):
     """
     Salva o inventário de um novo abrigo de emergência na planilha.

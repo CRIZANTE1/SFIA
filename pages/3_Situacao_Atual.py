@@ -26,7 +26,7 @@ from operations.photo_operations import upload_evidence_photo
 set_page_config()
 
 
-def get_hose_status_df(df_hoses):
+def get_shelter_status_df(df_inspections):
     if df_inspections.empty:
         return pd.DataFrame()
     

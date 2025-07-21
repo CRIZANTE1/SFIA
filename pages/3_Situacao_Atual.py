@@ -18,6 +18,8 @@ from gdrive.config import HOSE_SHEET_NAME, SHELTER_SHEET_NAME
 from config.page_config import set_page_config 
 from operations.corrective_actions import save_corrective_action
 from operations.photo_operations import upload_evidence_photo
+from reports.reports_pdf import generate_shelters_html
+
 
 set_page_config()
 

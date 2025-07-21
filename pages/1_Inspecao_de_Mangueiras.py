@@ -213,7 +213,7 @@ def show_hose_and_shelter_page():
                         with st.spinner("Salvando resultado da inspeção..."):
                             if save_shelter_inspection(selected_shelter_id, overall_status, inspection_results, get_user_display_name()):
                                 st.success(f"Inspeção do abrigo '{selected_shelter_id}' salva com sucesso como '{overall_status}'!")
-                                st.balloons() if not has_issues else None
+                                #st.balloons() if not has_issues else None
                                 st.cache_data.clear()
                             else:
                                 st.error("Ocorreu um erro ao salvar a inspeção.")

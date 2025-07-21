@@ -69,18 +69,15 @@ def show_hose_inspection_page():
                     st.error("Falha ao fazer o upload do certificado. Os dados não foram salvos.")
                     st.stop()
                 
-                # 2. Loop para salvar cada registro
                 total_count = len(st.session_state.hose_processed_data)
                 progress_bar = st.progress(0, "Salvando...")
                 
                 for i, record in enumerate(st.session_state.hose_processed_data):
-                    inspection_data = {
-                        'id_mangueira': record.get('id_mangueira'),
-                        'data_inspecao': record.get('data_inspecao', date.today().isoformat()),
-                        'link_certificado_pdf': pdf_link,
-                        'inspetor_responsavel': get_user_display_name()
-                    }
-                    save_hose_inspection(inspection_data)
+                    save_hose_inspection(
+                        record=record, 
+                        pdf_link=pdf_link, 
+                        user_name=get_user_display_name()
+                    )
                     progress_bar.progress((i + 1) / total_count)
                 
                 st.success(f"{total_count} registros de mangueiras salvos com sucesso!")

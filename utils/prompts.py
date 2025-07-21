@@ -107,4 +107,42 @@ def get_hose_inspection_prompt():
         }
       ]
     }
+    """
+
+def get_shelter_inventory_prompt():
+    """
+    Retorna um prompt para extrair o inventário de abrigos de emergência de um documento.
+    """
+    return """
+    Você é um especialista em analisar documentos de inventário de segurança contra incêndio.
+    Sua tarefa é analisar o documento PDF e extrair o inventário de CADA abrigo listado.
+
+    **Para cada abrigo, extraia os seguintes campos:**
+
+    1.  `cliente`: O nome do cliente ou da unidade principal, geralmente no topo do documento (Ex: "VIBRA ENERGIA"). Este campo será o mesmo para todos os abrigos no mesmo documento.
+    2.  `id_abrigo`: O identificador do abrigo (Ex: "CECI 01").
+    3.  `itens`: Um objeto (dicionário) contendo cada item e sua respectiva quantidade. As chaves devem ser o nome do item e os valores devem ser a quantidade como um número inteiro.
+
+    **Formato de Saída OBRIGATÓRIO:**
+    Retorne a resposta APENAS como um objeto JSON com uma chave "abrigos" contendo uma LISTA de objetos,
+    onde cada objeto representa um abrigo.
+
+    Exemplo de formato de saída obrigatório para um documento com um único abrigo:
+    {
+      "abrigos": [
+        {
+          "cliente": "VIBRA ENERGIA",
+          "id_abrigo": "CECI 01",
+          "itens": {
+            "Mangueira de 1½\"": 2,
+            "Mangueira de 2½\"": 2,
+            "Esguicho de 1½\"": 2,
+            "Esguicho de 2½\"": 1,
+            "Derivante": 1,
+            "Chave de Acoplamento": 4,
+            "Proporcionador de Espuma": 0
+          }
+        }
+      ]
+    }
     """    

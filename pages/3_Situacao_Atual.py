@@ -5,6 +5,7 @@ from dateutil.relativedelta import relativedelta
 import sys
 import os
 import numpy as np
+import json
 from streamlit_js_eval import streamlit_js_eval
 
 # Adiciona o diretório raiz ao path

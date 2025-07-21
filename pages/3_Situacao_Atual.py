@@ -114,13 +114,19 @@ def get_shelter_status_df(df_shelters_registered, df_inspections, df_action_log)
         
     dashboard_df = pd.DataFrame(status_list)
     
-    # Formata as colunas para exibição
-    dashboard_df['data_inspecao'] = dashboard_df['data_inspecao'].dt.strftime('%d/%m/%Y').fillna('N/A')
-    dashboard_df['data_proxima_inspecao'] = dashboard_df['data_proxima_inspecao'].dt.strftime('%d/%m/%Y').fillna('N/A')
+    dashboard_df['data_inspecao'] = pd.to_datetime(dashboard_df['data_inspecao'], errors='coerce')
+    dashboard_df['data_proxima_inspecao'] = pd.to_datetime(dashboard_df['data_proxima_inspecao'], errors='coerce')
+
+    # Agora o .dt vai funcionar com segurança
+    dashboard_df['data_inspecao_str'] = dashboard_df['data_inspecao'].dt.strftime('%d/%m/%Y').fillna('N/A')
+    dashboard_df['data_proxima_inspecao_str'] = dashboard_df['data_proxima_inspecao'].dt.strftime('%d/%m/%Y').fillna('N/A')
+    
     dashboard_df['inspetor'] = dashboard_df['inspetor'].fillna('N/A')
     
-    display_columns = ['id_abrigo', 'status_dashboard', 'data_inspecao', 'data_proxima_inspecao', 'status_geral', 'inspetor']
-    return dashboard_df[display_columns]
+    display_columns = ['id_abrigo', 'status_dashboard', 'data_inspecao', 'data_inspecao_str', 'data_proxima_inspecao_str', 'status_geral', 'inspetor']
+    existing_columns = [col for col in display_columns if col in dashboard_df.columns]
+    
+    return dashboard_df[existing_columns]
 
 
 

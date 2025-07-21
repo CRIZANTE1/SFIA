@@ -413,13 +413,13 @@ def show_dashboard_page():
         
         df_shelters_registered = load_sheet_data(SHELTER_SHEET_NAME)
         df_inspections_history = load_sheet_data(INSPECTIONS_SHELTER_SHEET_NAME)
-
+        df_action_log = load_sheet_data(LOG_SHELTER_SHEET_NAME)
+        
         if df_shelters_registered.empty:
             st.warning("Nenhum abrigo de emergência cadastrado.")
         else:
             st.info("Aqui está o status de todos os abrigos. Gere um relatório de status completo para impressão ou registre ações corretivas.")
             if st.button("📄 Gerar Relatório de Status em PDF", type="primary"):
-                df_action_log = load_sheet_data(LOG_SHELTER_SHEET_NAME)
                 report_html = generate_shelters_html(df_shelters_registered, df_inspections_history, df_action_log)
                 js_code = f"""
                     const reportHtml = {json.dumps(report_html)};

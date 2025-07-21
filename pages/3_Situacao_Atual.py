@@ -329,7 +329,7 @@ def show_dashboard_page():
         if df_shelters.empty:
             st.warning("Nenhum abrigo de emergência cadastrado.")
         else:
-            st.info("Aqui está a lista de todos os abrigos cadastrados. Você pode visualizar abaixo ou gerar um PDF para impressão.")
+            st.info("Clique em cada abrigo para ver seu inventário ou gere um PDF com todos os dados.")
             
             # Botão para gerar e imprimir o PDF
             if st.button("📄 Gerar PDF para Impressão", type="primary"):
@@ -350,21 +350,25 @@ def show_dashboard_page():
                 st.success("Relatório enviado para impressão!")
 
             st.markdown("---")
+            st.subheader("Lista de Abrigos Cadastrados")
 
-            # Visualização na própria página
+            # Visualização na própria página usando st.expander
             for _, row in df_shelters.iterrows():
-                with st.container(border=True):
-                    st.subheader(f"Abrigo ID: {row['id_abrigo']}")
-                    st.caption(f"Cliente: {row['cliente']}")
+                # Título do expander, mais informativo
+                expander_title = f"🧯 **ID:** {row['id_abrigo']} | **Cliente:** {row['cliente']}"
+                
+                with st.expander(expander_title):
                     try:
+                        # Tenta carregar os itens do JSON na planilha
                         items_dict = json.loads(row['itens_json'])
                         if items_dict:
-                            items_df = pd.DataFrame(items_dict.items(), columns=["Item", "Quantidade"])
+                            # Cria um DataFrame a partir do dicionário de itens para uma exibição elegante
+                            items_df = pd.DataFrame(items_dict.items(), columns=["Item", "Quantidade Prevista"])
                             st.table(items_df)
                         else:
                             st.info("Nenhum item inventariado para este abrigo.")
                     except (json.JSONDecodeError, TypeError):
-                        st.error("Formato do inventário inválido na planilha.")
+                        st.error("Formato do inventário inválido na planilha. Verifique a coluna 'itens_json'.")
 
 
 

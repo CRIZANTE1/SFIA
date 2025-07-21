@@ -55,6 +55,7 @@ def get_hose_status_df(df_hoses):
 
 
 def get_shelter_status_df(df_shelters_registered, df_inspections):
+    # Esta função agora NÃO precisa mais do df_action_log
     if df_shelters_registered.empty:
         return pd.DataFrame()
 
@@ -70,8 +71,8 @@ def get_shelter_status_df(df_shelters_registered, df_inspections):
         )
     else:
         dashboard_df = df_shelters_registered.copy()
-        for col in ['data_inspecao', 'data_proxima_inspecao', 'status_geral', 'inspetor']:
-            dashboard_df[col] = pd.NaT
+        for col in ['data_inspecao', 'data_proxima_inspecao', 'status_geral', 'inspetor', 'resultados_json']:
+            dashboard_df[col] = pd.NaT if col.startswith('data') else None
 
     today = pd.Timestamp(date.today())
     dashboard_df['data_proxima_inspecao'] = pd.to_datetime(dashboard_df['data_proxima_inspecao'], errors='coerce')
@@ -84,11 +85,17 @@ def get_shelter_status_df(df_shelters_registered, df_inspections):
     choices = ['🔵 PENDENTE (Nova Inspeção)', '🔴 VENCIDO', '🟠 COM PENDÊNCIAS']
     dashboard_df['status_dashboard'] = np.select(conditions, choices, default='🟢 OK')
 
-    dashboard_df['data_inspecao_str'] = dashboard_df['data_inspecao'].dt.strftime('%d/%m/%Y').fillna('N/A')
-    dashboard_df['data_proxima_inspecao_str'] = dashboard_df['data_proxima_inspecao'].dt.strftime('%d/%m/%Y').fillna('N/A')
+    
+    dashboard_df['resultados_json'] = dashboard_df['resultados_json'].fillna('{}')
     dashboard_df['inspetor'] = dashboard_df['inspetor'].fillna('N/A')
     
-    display_columns = ['id_abrigo', 'status_dashboard', 'data_inspecao', 'data_inspecao_str', 'data_proxima_inspecao_str', 'status_geral', 'inspetor']
+    dashboard_df['data_inspecao_str'] = dashboard_df['data_inspecao'].dt.strftime('%d/%m/%Y %H:%M').fillna('N/A')
+    dashboard_df['data_proxima_inspecao_str'] = dashboard_df['data_proxima_inspecao'].dt.strftime('%d/%m/%Y').fillna('N/A')
+    
+    display_columns = [
+        'id_abrigo', 'status_dashboard', 'data_inspecao', 'data_inspecao_str', 
+        'data_proxima_inspecao_str', 'status_geral', 'inspetor', 'resultados_json'
+    ]
     existing_columns = [col for col in display_columns if col in dashboard_df.columns]
     
     return dashboard_df[existing_columns]

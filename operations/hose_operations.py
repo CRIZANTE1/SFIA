@@ -1,27 +1,29 @@
 import streamlit as st
 from datetime import date
 from dateutil.relativedelta import relativedelta
+import pandas as pd
 from gdrive.gdrive_upload import GoogleDriveUploader
 from gdrive.config import HOSE_SHEET_NAME
 
-def save_hose_inspection(data):
+def save_hose_inspection(record, pdf_link, user_name):
     """
-    Salva um novo registro de inspeção de mangueira na planilha.
+    Salva um novo registro de inspeção de mangueira na planilha, 
+    utilizando todos os dados extraídos pela IA.
     Calcula automaticamente a data do próximo teste.
     """
     try:
         uploader = GoogleDriveUploader()
         
-        inspection_date = data.get('data_inspecao')
-        if isinstance(inspection_date, str):
-            inspection_date_obj = date.fromisoformat(inspection_date)
-        else:
-            inspection_date_obj = inspection_date
+        inspection_date_str = record.get('data_inspecao')
+        
+        try:
+            inspection_date_obj = pd.to_datetime(inspection_date_str).date()
+        except (ValueError, TypeError):
+            st.warning(f"Data de inspeção inválida para ID {record.get('id_mangueira')}: '{inspection_date_str}'. Usando data de hoje.")
+            inspection_date_obj = date.today()
             
-        # Calcula a data do próximo teste (anual)
         next_test_date = (inspection_date_obj + relativedelta(years=1)).isoformat()
         
-        # Prepara a linha de dados para ser inserida na planilha
         data_row = [
             record.get('id_mangueira'),
             record.get('marca'),
@@ -32,8 +34,8 @@ def save_hose_inspection(data):
             inspection_date_obj.isoformat(),
             next_test_date,
             record.get('resultado'),
-            pdf_link,                       
-            user_name,                     
+            pdf_link,  
+            user_name, 
             record.get('empresa_executante'),
             record.get('inspetor_responsavel') 
         ]
@@ -42,5 +44,5 @@ def save_hose_inspection(data):
         return True
 
     except Exception as e:
-        st.error(f"Erro ao salvar inspeção da mangueira {data.get('id_mangueira')}: {e}")
+        st.error(f"Erro ao salvar inspeção da mangueira {record.get('id_mangueira')}: {e}")
         return False

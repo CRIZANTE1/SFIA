@@ -471,19 +471,32 @@ def show_dashboard_page():
                         if st.button("✍️ Registrar Ação", key=f"action_{row['id_abrigo']}", use_container_width=True):
                             action_dialog_shelter(row['id_abrigo'], problem_description)
                     
-                    if pd.notna(row['data_inspecao']):
-                        detail_row = df_inspections_history[
-                            (df_inspections_history['id_abrigo'] == row['id_abrigo']) & 
-                            (pd.to_datetime(df_inspections_history['data_inspecao']) == row['data_inspecao'])
-                        ]
-                    
-                        if not detail_row.empty:
-                            try:
-                                results_dict = json.loads(detail_row.iloc[0]['resultados_json'])
-                                results_df = pd.DataFrame.from_dict(results_dict, orient='index')
-                                st.table(results_df)
-                            except (json.JSONDecodeError, TypeError):
-                                st.error("Não foi possível carregar os detalhes desta inspeção.")
+                    st.markdown("---")
+                    st.write("**Detalhes da Última Inspeção:**")
+
+                    try:
+                        results_dict = json.loads(row['resultados_json'])
+                        
+                        if results_dict:                
+                            general_conditions = results_dict.pop('Condições Gerais', {})
+                           
+                            if results_dict: 
+                                st.write("**Itens do Inventário:**")
+                                items_df = pd.DataFrame.from_dict(results_dict, orient='index')
+                                st.table(items_df)
+                            
+                            if general_conditions:
+                                st.write("**Condições Gerais do Abrigo:**")
+                                cols = st.columns(len(general_conditions))
+                                for i, (key, value) in enumerate(general_conditions.items()):
+                                    with cols[i]:
+                                        st.metric(label=key, value=value)
+                            
+                        else:
+                            st.info("Nenhum detalhe de inspeção disponível.")
+                            
+                    except (json.JSONDecodeError, TypeError):
+                        st.error("Não foi possível carregar os detalhes desta inspeção (formato inválido).")
 
 
 # --- Boilerplate de Autenticação ---

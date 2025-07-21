@@ -13,7 +13,7 @@ from operations.history import load_sheet_data, find_last_record
 from auth.login_page import show_login_page, show_user_header, show_logout_button
 from auth.auth_utils import is_admin_user, get_user_display_name
 from operations.demo_page import show_demo_page
-from gdrive.config import HOSE_SHEET_NAME 
+from gdrive.config import HOSE_SHEET_NAME, SHELTER_SHEET_NAME 
 from config.page_config import set_page_config 
 from operations.corrective_actions import save_corrective_action
 from operations.photo_operations import upload_evidence_photo
@@ -217,7 +217,7 @@ def show_dashboard_page():
         st.cache_data.clear()
         st.rerun()
 
-    tab_extinguishers, tab_hoses = st.tabs(["🔥 Extintores", "💧 Mangueiras"])
+    tab_extinguishers, tab_hoses, tab_shelters = st.tabs(["🔥 Extintores", "💧 Mangueiras", "🧯 Abrigos"])
 
     location = streamlit_js_eval(js_expressions="""
         new Promise(function(resolve, reject) {
@@ -320,6 +320,52 @@ def show_dashboard_page():
                 hide_index=True,
                 use_container_width=True
             )
+
+    with tab_shelters:
+        st.header("Inventário dos Abrigos de Emergência")
+        df_shelters = load_sheet_data(SHELTER_SHEET_NAME)
+
+        if df_shelters.empty:
+            st.warning("Nenhum abrigo de emergência cadastrado.")
+        else:
+            st.info("Aqui está a lista de todos os abrigos cadastrados. Você pode visualizar abaixo ou gerar um PDF para impressão.")
+            
+            # Botão para gerar e imprimir o PDF
+            if st.button("📄 Gerar PDF para Impressão", type="primary"):
+                report_html = generate_shelters_html(df_shelters)
+                js_code = f"""
+                    const reportHtml = {json.dumps(report_html)};
+                    const printWindow = window.open('', '_blank');
+                    if (printWindow) {{
+                        printWindow.document.write(reportHtml);
+                        printWindow.document.close();
+                        printWindow.focus();
+                        setTimeout(() => {{ printWindow.print(); printWindow.close(); }}, 500);
+                    }} else {{
+                        alert('Por favor, desabilite o bloqueador de pop-ups para este site.');
+                    }}
+                """
+                streamlit_js_eval(js_expressions=js_code, key="print_shelters_js")
+                st.success("Relatório enviado para impressão!")
+
+            st.markdown("---")
+
+            # Visualização na própria página
+            for _, row in df_shelters.iterrows():
+                with st.container(border=True):
+                    st.subheader(f"Abrigo ID: {row['id_abrigo']}")
+                    st.caption(f"Cliente: {row['cliente']}")
+                    try:
+                        items_dict = json.loads(row['itens_json'])
+                        if items_dict:
+                            items_df = pd.DataFrame(items_dict.items(), columns=["Item", "Quantidade"])
+                            st.table(items_df)
+                        else:
+                            st.info("Nenhum item inventariado para este abrigo.")
+                    except (json.JSONDecodeError, TypeError):
+                        st.error("Formato do inventário inválido na planilha.")
+
+
 
 # --- Boilerplate de Autenticação ---
 if not show_login_page(): st.stop()

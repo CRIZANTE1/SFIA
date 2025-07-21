@@ -10,7 +10,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Imports necessários para o novo fluxo
 from operations.hose_operations import save_hose_inspection
-from operations.shelter_operations import save_shelter_inventory 
+from operations.shelter_operations import save_shelter_inventory, save_shelter_inspection
 from gdrive.gdrive_upload import GoogleDriveUploader
 from AI.api_Operation import PDFQA
 from gdrive.config import SHELTER_SHEET_NAME

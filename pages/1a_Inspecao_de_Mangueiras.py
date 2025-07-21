@@ -1,5 +1,3 @@
-# FILE: pages/1a_Inspecao_de_Mangueiras.py
-
 import streamlit as st
 import sys
 import os

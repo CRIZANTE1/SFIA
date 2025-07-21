@@ -414,7 +414,7 @@ def show_dashboard_page():
         df_shelters_registered = load_sheet_data(SHELTER_SHEET_NAME)
         df_inspections_history = load_sheet_data(INSPECTIONS_SHELTER_SHEET_NAME)
         df_action_log = load_sheet_data(LOG_SHELTER_SHEET_NAME)
-        
+
         if df_shelters_registered.empty:
             st.warning("Nenhum abrigo de emergência cadastrado.")
         else:
@@ -438,12 +438,14 @@ def show_dashboard_page():
             st.markdown("---")
 
             dashboard_df_shelters = get_shelter_status_df(df_shelters_registered, df_inspections_history, df_action_log)
-
+            
             status_counts = dashboard_df_shelters['status_dashboard'].value_counts()
+            ok_count = status_counts.get("🟢 OK", 0) + status_counts.get("🟢 OK (Ação Realizada)", 0)
+            pending_count = status_counts.get("🟠 COM PENDÊNCIAS", 0) + status_counts.get("🔵 PENDENTE (Nova Inspeção)", 0)
             col1, col2, col3, col4 = st.columns(4)
             col1.metric("✅ Total de Abrigos", len(dashboard_df_shelters))
-            col2.metric("🟢 OK", status_counts.get("🟢 OK", 0))
-            col3.metric("🟠 Pendentes/Não-Conforme", status_counts.get("🟠 COM PENDÊNCIAS", 0) + status_counts.get("🔵 PENDENTE (Nova Inspeção)", 0))
+            col2.metric("🟢 OK", ok_count)
+            col3.metric("🟠 Pendentes", pending_count)
             col4.metric("🔴 Vencido", status_counts.get("🔴 VENCIDO", 0))
             st.markdown("---")
             
@@ -454,11 +456,11 @@ def show_dashboard_page():
                 expander_title = f"{status} | **ID:** {row['id_abrigo']} | **Próx. Inspeção:** {prox_inspecao_str}"
                 
                 with st.expander(expander_title):
-                    data_inspecao_str = pd.to_datetime(row['data_inspecao']).strftime('%d/%m/%Y') if pd.notna(row['data_inspecao']) else 'N/A'
+                    data_inspecao_str = row['data_inspecao_str']
                     st.write(f"**Última inspeção:** {data_inspecao_str} por **{row['inspetor']}**")
                     st.write(f"**Resultado da última inspeção:** {row.get('status_geral', 'N/A')}")
                     
-                    if status != "🟢 OK":
+                    if status not in ["🟢 OK", "🟢 OK (Ação Realizada)"]:
                         problem_description = status.replace("🔴 ", "").replace("🟠 ", "").replace("🔵 ", "")
                         if st.button("✍️ Registrar Ação", key=f"action_{row['id_abrigo']}", use_container_width=True):
                             action_dialog_shelter(row['id_abrigo'], problem_description)
@@ -476,7 +478,6 @@ def show_dashboard_page():
                                 st.table(results_df)
                             except (json.JSONDecodeError, TypeError):
                                 st.error("Não foi possível carregar os detalhes desta inspeção.")
-
 
 
 # --- Boilerplate de Autenticação ---

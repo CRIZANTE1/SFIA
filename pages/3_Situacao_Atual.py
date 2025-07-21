@@ -60,10 +60,6 @@ def get_hose_status_df(df_hoses):
 
 
 def get_shelter_status_df(df_shelters_registered, df_inspections):
-    """
-    Cruza a lista de abrigos cadastrados com o histórico de inspeções para
-    determinar o status de TODOS os abrigos.
-    """
     if df_shelters_registered.empty:
         return pd.DataFrame()
 
@@ -78,32 +74,26 @@ def get_shelter_status_df(df_shelters_registered, df_inspections):
             how='left'
         )
     else:
-        # Se não houver nenhuma inspeção, use apenas a lista de abrigos
         dashboard_df = df_shelters_registered.copy()
-        # Adiciona colunas vazias para evitar erros
         for col in ['data_inspecao', 'data_proxima_inspecao', 'status_geral', 'inspetor']:
             dashboard_df[col] = pd.NaT
 
-    # 3. Determine o status final para TODOS os abrigos
     today = pd.Timestamp(date.today())
     dashboard_df['data_proxima_inspecao'] = pd.to_datetime(dashboard_df['data_proxima_inspecao'], errors='coerce')
     
     conditions = [
-        (dashboard_df['data_inspecao'].isna()),  # <-- CONDIÇÃO PARA NUNCA INSPECIONADO
+        (dashboard_df['data_inspecao'].isna()),
         (dashboard_df['data_proxima_inspecao'] < today),
         (dashboard_df['status_geral'] == 'Reprovado com Pendências')
     ]
     choices = ['🔵 PENDENTE (Nova Inspeção)', '🔴 VENCIDO', '🟠 COM PENDÊNCIAS']
     dashboard_df['status_dashboard'] = np.select(conditions, choices, default='🟢 OK')
-
-    # 4. Formata as datas para exibição, tratando valores nulos
-    dashboard_df['data_inspecao'] = dashboard_df['data_inspecao'].dt.strftime('%d/%m/%Y').fillna('N/A')
-    dashboard_df['data_proxima_inspecao'] = dashboard_df['data_proxima_inspecao'].dt.strftime('%d/%m/%Y').fillna('N/A')
+    
+    dashboard_df['data_proxima_inspecao_str'] = dashboard_df['data_proxima_inspecao'].dt.strftime('%d/%m/%Y').fillna('N/A')
     dashboard_df['inspetor'] = dashboard_df['inspetor'].fillna('N/A')
     
-    # 5. Seleciona as colunas finais para o dashboard
-    display_columns = ['id_abrigo', 'status_dashboard', 'data_inspecao', 'data_proxima_inspecao', 'status_geral', 'inspetor']
-    return dashboard_df[display_columns]
+    return dashboard_df
+
 
 
 
@@ -202,16 +192,13 @@ def action_dialog_shelter(shelter_id, problem):
             return
 
         with st.spinner("Registrando ação..."):
-            # Salva o log da ação
             log_saved = save_shelter_action_log(shelter_id, problem, action_taken, responsible)
             
             if not log_saved:
                 st.error("Falha ao salvar o log da ação.")
                 return
 
-            # Se o usuário marcou, realiza uma nova inspeção "OK"
             if new_inspection:
-                # Criamos um resultado de inspeção "perfeito" para regularizar
                 inspection_results = {"Condições Gerais": {"Lacre": "Sim", "Sinalização": "Sim", "Acesso": "Sim"}}
                 inspection_saved = save_shelter_inspection(shelter_id, "Aprovado", inspection_results, get_user_display_name())
                 if not inspection_saved:
@@ -224,7 +211,6 @@ def action_dialog_shelter(shelter_id, problem):
 
 @st.dialog("Registrar Ação Corretiva")
 def action_form(item, df_full_history, location):
-    # (Esta função permanece sem alterações)
     st.write(f"**Equipamento ID:** `{item['numero_identificacao']}`")
     st.write(f"**Problema Identificado:** `{item['plano_de_acao']}`")
     
@@ -297,7 +283,6 @@ def action_form(item, df_full_history, location):
                 st.error("Falha ao registrar a ação.")
 
 def show_dashboard_page():
-    # (Esta função permanece sem alterações)
     st.title("Situação Atual dos Equipamentos de Emergência")
     
     if st.button("Limpar Cache e Recarregar Dados"):
@@ -417,13 +402,10 @@ def show_dashboard_page():
         if df_shelters_registered.empty:
             st.warning("Nenhum abrigo de emergência cadastrado.")
         else:
-            st.info("Aqui está o status de todos os abrigos. Gere um PDF de inventário para impressão ou registre ações corretivas.")
+            st.info("Aqui está o status de todos os abrigos. Gere um relatório de status completo para impressão ou registre ações corretivas.")
             if st.button("📄 Gerar Relatório de Status em PDF", type="primary"):
                 df_action_log = load_sheet_data(LOG_SHELTER_SHEET_NAME)
-                
-                # Chama a função com os 3 dataframes necessários
                 report_html = generate_shelters_html(df_shelters_registered, df_inspections_history, df_action_log)
-                
                 js_code = f"""
                     const reportHtml = {json.dumps(report_html)};
                     const printWindow = window.open('', '_blank');
@@ -442,42 +424,46 @@ def show_dashboard_page():
 
             dashboard_df_shelters = get_shelter_status_df(df_shelters_registered, df_inspections_history)
 
-            # Métricas
             status_counts = dashboard_df_shelters['status_dashboard'].value_counts()
             col1, col2, col3, col4 = st.columns(4)
             col1.metric("✅ Total de Abrigos", len(dashboard_df_shelters))
             col2.metric("🟢 OK", status_counts.get("🟢 OK", 0))
             col3.metric("🟠 Pendentes/Não-Conforme", status_counts.get("🟠 COM PENDÊNCIAS", 0) + status_counts.get("🔵 PENDENTE (Nova Inspeção)", 0))
             col4.metric("🔴 Vencido", status_counts.get("🔴 VENCIDO", 0))
-            
             st.markdown("---")
             
             st.subheader("Lista de Abrigos e Status")
             for _, row in dashboard_df_shelters.iterrows():
                 status = row['status_dashboard']
-                expander_title = f"{status} | **ID:** {row['id_abrigo']} | **Próx. Inspeção:** {row['data_proxima_inspecao']}"
+                # Usando a coluna de string para exibição
+                prox_inspecao_str = row['data_proxima_inspecao_str']
+                expander_title = f"{status} | **ID:** {row['id_abrigo']} | **Próx. Inspeção:** {prox_inspecao_str}"
                 
                 with st.expander(expander_title):
-                    st.write(f"**Última inspeção:** {row['data_inspecao']} por **{row['inspetor']}**")
-                    st.write(f"**Resultado da última inspeção:** {row['status_geral']}")
+                    # Formata a data de objeto para string aqui para exibição
+                    data_inspecao_str = pd.to_datetime(row['data_inspecao']).strftime('%d/%m/%Y') if pd.notna(row['data_inspecao']) else 'N/A'
+                    st.write(f"**Última inspeção:** {data_inspecao_str} por **{row['inspetor']}**")
+                    st.write(f"**Resultado da última inspeção:** {row.get('status_geral', 'N/A')}")
                     
                     if status != "🟢 OK":
                         problem_description = status.replace("🔴 ", "").replace("🟠 ", "").replace("🔵 ", "")
                         if st.button("✍️ Registrar Ação", key=f"action_{row['id_abrigo']}", use_container_width=True):
                             action_dialog_shelter(row['id_abrigo'], problem_description)
                     
-                    detail_row = df_inspections_history[
-                        (df_inspections_history['id_abrigo'] == row['id_abrigo']) & 
-                        (pd.to_datetime(df_inspections_history['data_inspecao']).dt.strftime('%d/%m/%Y') == row['data_inspecao'])
-                    ]
+                    # Convertendo a data de inspeção da linha atual para comparar com o histórico
+                    if pd.notna(row['data_inspecao']):
+                        detail_row = df_inspections_history[
+                            (df_inspections_history['id_abrigo'] == row['id_abrigo']) & 
+                            (pd.to_datetime(df_inspections_history['data_inspecao']) == row['data_inspecao'])
+                        ]
                     
-                    if not detail_row.empty:
-                        try:
-                            results_dict = json.loads(detail_row.iloc[0]['resultados_json'])
-                            results_df = pd.DataFrame.from_dict(results_dict, orient='index')
-                            st.table(results_df)
-                        except (json.JSONDecodeError, TypeError):
-                            st.error("Não foi possível carregar os detalhes desta inspeção.")
+                        if not detail_row.empty:
+                            try:
+                                results_dict = json.loads(detail_row.iloc[0]['resultados_json'])
+                                results_df = pd.DataFrame.from_dict(results_dict, orient='index')
+                                st.table(results_df)
+                            except (json.JSONDecodeError, TypeError):
+                                st.error("Não foi possível carregar os detalhes desta inspeção.")
 
 
 

@@ -418,8 +418,11 @@ def show_dashboard_page():
             st.warning("Nenhum abrigo de emergência cadastrado.")
         else:
             st.info("Aqui está o status de todos os abrigos. Gere um PDF de inventário para impressão ou registre ações corretivas.")
-            if st.button("📄 Gerar Inventário em PDF para Impressão", type="primary"):
-                report_html = generate_shelters_html(df_shelters_registered)
+            if st.button("📄 Gerar Relatório de Status em PDF", type="primary"):
+                df_action_log = load_sheet_data(LOG_SHELTER_SHEET_NAME)
+                
+                report_html = generate_shelters_html(df_shelters_registered, df_inspections_history, df_action_log)
+                
                 js_code = f"""
                     const reportHtml = {json.dumps(report_html)};
                     const printWindow = window.open('', '_blank');
@@ -433,7 +436,7 @@ def show_dashboard_page():
                     }}
                 """
                 streamlit_js_eval(js_expressions=js_code, key="print_shelters_js")
-                st.success("Relatório de inventário enviado para impressão!")
+            st.success("Relatório de status enviado para impressão!")
             st.markdown("---")
 
             dashboard_df_shelters = get_shelter_status_df(df_shelters_registered, df_inspections_history)

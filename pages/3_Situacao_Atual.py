@@ -58,40 +58,52 @@ def get_hose_status_df(df_hoses):
     
     return df_hoses[existing_display_columns]
 
-def get_shelter_status_df(df_inspections):
-    if df_inspections.empty:
-        return pd.DataFrame()
-    
-    # Garante que a coluna de data exista e a converte
-    df_inspections['data_inspecao'] = pd.to_datetime(df_inspections['data_inspecao'], errors='coerce')
-    
-    # Pega o registro mais recente para cada abrigo
-    latest_inspections = df_inspections.sort_values('data_inspecao', ascending=False).drop_duplicates(subset='id_abrigo', keep='first').copy()
-    
-    # Verifica o status de vencimento
-    latest_inspections['data_proxima_inspecao'] = pd.to_datetime(latest_inspections['data_proxima_inspecao'], errors='coerce')
-    today = pd.Timestamp(date.today())
-    
-    # Define a coluna de status com base nas condições
-    conditions = [
-        (latest_inspections['data_proxima_inspecao'] < today),
-        (latest_inspections['status_geral'] == 'Reprovado com Pendências')
-    ]
-    choices = ['🔴 VENCIDO', '🟠 COM PENDÊNCIAS']
-    latest_inspections['status_dashboard'] = np.select(conditions, choices, default='🟢 OK')
-    
-    # Formata datas para exibição
-    latest_inspections['data_inspecao'] = latest_inspections['data_inspecao'].dt.strftime('%d/%m/%Y')
-    latest_inspections['data_proxima_inspecao'] = latest_inspections['data_proxima_inspecao'].dt.strftime('%d/%m/%Y')
-    
-    # Seleciona as colunas para o dashboard
-    display_columns = ['id_abrigo', 'status_dashboard', 'data_inspecao', 'data_proxima_inspecao', 'status_geral', 'inspetor']
-    
-    # Garante que apenas colunas existentes sejam retornadas
-    existing_display_columns = [col for col in display_columns if col in latest_inspections.columns]
-    
-    return latest_inspections[existing_display_columns]
 
+def get_shelter_status_df(df_shelters_registered, df_inspections):
+    """
+    Cruza a lista de abrigos cadastrados com o histórico de inspeções para
+    determinar o status de TODOS os abrigos.
+    """
+    if df_shelters_registered.empty:
+        return pd.DataFrame()
+
+    if not df_inspections.empty:
+        df_inspections['data_inspecao'] = pd.to_datetime(df_inspections['data_inspecao'], errors='coerce')
+        latest_inspections = df_inspections.sort_values('data_inspecao', ascending=False).drop_duplicates(subset='id_abrigo', keep='first')
+        
+        dashboard_df = pd.merge(
+            df_shelters_registered[['id_abrigo', 'cliente']],
+            latest_inspections,
+            on='id_abrigo',
+            how='left'
+        )
+    else:
+        # Se não houver nenhuma inspeção, use apenas a lista de abrigos
+        dashboard_df = df_shelters_registered.copy()
+        # Adiciona colunas vazias para evitar erros
+        for col in ['data_inspecao', 'data_proxima_inspecao', 'status_geral', 'inspetor']:
+            dashboard_df[col] = pd.NaT
+
+    # 3. Determine o status final para TODOS os abrigos
+    today = pd.Timestamp(date.today())
+    dashboard_df['data_proxima_inspecao'] = pd.to_datetime(dashboard_df['data_proxima_inspecao'], errors='coerce')
+    
+    conditions = [
+        (dashboard_df['data_inspecao'].isna()),  # <-- CONDIÇÃO PARA NUNCA INSPECIONADO
+        (dashboard_df['data_proxima_inspecao'] < today),
+        (dashboard_df['status_geral'] == 'Reprovado com Pendências')
+    ]
+    choices = ['🔵 PENDENTE (Nova Inspeção)', '🔴 VENCIDO', '🟠 COM PENDÊNCIAS']
+    dashboard_df['status_dashboard'] = np.select(conditions, choices, default='🟢 OK')
+
+    # 4. Formata as datas para exibição, tratando valores nulos
+    dashboard_df['data_inspecao'] = dashboard_df['data_inspecao'].dt.strftime('%d/%m/%Y').fillna('N/A')
+    dashboard_df['data_proxima_inspecao'] = dashboard_df['data_proxima_inspecao'].dt.strftime('%d/%m/%Y').fillna('N/A')
+    dashboard_df['inspetor'] = dashboard_df['inspetor'].fillna('N/A')
+    
+    # 5. Seleciona as colunas finais para o dashboard
+    display_columns = ['id_abrigo', 'status_dashboard', 'data_inspecao', 'data_proxima_inspecao', 'status_geral', 'inspetor']
+    return dashboard_df[display_columns]
 
 
 
@@ -398,17 +410,20 @@ def show_dashboard_page():
 
     with tab_shelters:
         st.header("Dashboard de Status dos Abrigos de Emergência")
+        
+        df_shelters_registered = load_sheet_data(SHELTER_SHEET_NAME)
         df_inspections_history = load_sheet_data(INSPECTIONS_SHELTER_SHEET_NAME)
 
-        if df_inspections_history.empty:
-            st.warning("Nenhuma inspeção de abrigo registrada.")
+        if df_shelters_registered.empty:
+            st.warning("Nenhum abrigo de emergência cadastrado.")
         else:
-            dashboard_df_shelters = get_shelter_status_df(df_inspections_history)
+            dashboard_df_shelters = get_shelter_status_df(df_shelters_registered, df_inspections_history)
+            
             status_counts = dashboard_df_shelters['status_dashboard'].value_counts()
             col1, col2, col3, col4 = st.columns(4)
             col1.metric("✅ Total de Abrigos", len(dashboard_df_shelters))
             col2.metric("🟢 OK", status_counts.get("🟢 OK", 0))
-            col3.metric("🟠 Com Pendências", status_counts.get("🟠 COM PENDÊNCIAS", 0))
+            col3.metric("🟠 Com Pendências", status_counts.get("🟠 COM PENDÊNCIAS", 0) + status_counts.get("🔵 PENDENTE (Nova Inspeção)", 0))
             col4.metric("🔴 Vencido", status_counts.get("🔴 VENCIDO", 0))
             st.markdown("---")
             st.subheader("Lista de Abrigos e Status")
@@ -421,7 +436,6 @@ def show_dashboard_page():
                     st.write(f"**Última inspeção:** {row['data_inspecao']} por **{row['inspetor']}**")
                     st.write(f"**Resultado da última inspeção:** {row['status_geral']}")
                     
-                    # Botão para registrar ação, visível apenas se não estiver OK
                     if status != "🟢 OK":
                         if st.button("✍️ Registrar Plano de Ação", key=f"action_{row['id_abrigo']}", use_container_width=True):
                             action_dialog_shelter(row['id_abrigo'], row['status_geral'])

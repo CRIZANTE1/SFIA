@@ -55,28 +55,43 @@ def get_hose_status_df(df_hoses):
 
 
 def get_shelter_status_df(df_shelters_registered, df_inspections):
-    # Esta função agora NÃO precisa mais do df_action_log
     if df_shelters_registered.empty:
         return pd.DataFrame()
 
+    latest_inspections_list = []
     if not df_inspections.empty:
-        df_inspections['data_inspecao'] = pd.to_datetime(df_inspections['data_inspecao'], errors='coerce')
-        latest_inspections = df_inspections.sort_values('data_inspecao', ascending=False).drop_duplicates(subset='id_abrigo', keep='first')
-        
-        dashboard_df = pd.merge(
-            df_shelters_registered[['id_abrigo', 'cliente']],
-            latest_inspections,
-            on='id_abrigo',
-            how='left'
-        )
+        df_inspections['data_inspecao'] = pd.to_datetime(df_inspections['data_inspecao'], errors='coerce').dt.date
+
+        for shelter_id in df_shelters_registered['id_abrigo'].unique():
+            shelter_inspections = df_inspections[df_inspections['id_abrigo'] == shelter_id].copy()
+            if not shelter_inspections.empty:
+                shelter_inspections = shelter_inspections.sort_values(by='data_inspecao', ascending=False)
+                
+                # LÓGICA DE DESEMPATE: Se houver várias inspeções no dia mais recente,
+                # priorize a que NÃO é "Reprovado com Pendências".
+                latest_date = shelter_inspections['data_inspecao'].iloc[0]
+                inspections_on_latest_date = shelter_inspections[shelter_inspections['data_inspecao'] == latest_date]
+                
+                approved_on_latest = inspections_on_latest_date[inspections_on_latest_date['status_geral'] != 'Reprovado com Pendências']
+                
+                if not approved_on_latest.empty:
+                    latest_inspections_list.append(approved_on_latest.iloc[0])
+                else:
+                    latest_inspections_list.append(inspections_on_latest_date.iloc[0])
+
+    latest_inspections = pd.DataFrame(latest_inspections_list)
+
+    if not latest_inspections.empty:
+        dashboard_df = pd.merge(df_shelters_registered[['id_abrigo', 'cliente']], latest_inspections, on='id_abrigo', how='left')
     else:
+
         dashboard_df = df_shelters_registered.copy()
         for col in ['data_inspecao', 'data_proxima_inspecao', 'status_geral', 'inspetor', 'resultados_json']:
-            dashboard_df[col] = pd.NaT if col.startswith('data') else None
+            dashboard_df[col] = None
 
-    today = pd.Timestamp(date.today())
-    dashboard_df['data_proxima_inspecao'] = pd.to_datetime(dashboard_df['data_proxima_inspecao'], errors='coerce')
-    
+    today = pd.to_datetime(date.today()).date()
+    dashboard_df['data_proxima_inspecao'] = pd.to_datetime(dashboard_df['data_proxima_inspecao'], errors='coerce').dt.date
+
     conditions = [
         (dashboard_df['data_inspecao'].isna()),
         (dashboard_df['data_proxima_inspecao'] < today),
@@ -85,17 +100,12 @@ def get_shelter_status_df(df_shelters_registered, df_inspections):
     choices = ['🔵 PENDENTE (Nova Inspeção)', '🔴 VENCIDO', '🟠 COM PENDÊNCIAS']
     dashboard_df['status_dashboard'] = np.select(conditions, choices, default='🟢 OK')
 
-    
-    dashboard_df['resultados_json'] = dashboard_df['resultados_json'].fillna('{}')
+    dashboard_df['data_inspecao_str'] = dashboard_df['data_inspecao'].apply(lambda x: x.strftime('%d/%m/%Y') if pd.notna(x) else 'N/A')
+    dashboard_df['data_proxima_inspecao_str'] = dashboard_df['data_proxima_inspecao'].apply(lambda x: x.strftime('%d/%m/%Y') if pd.notna(x) else 'N/A')
     dashboard_df['inspetor'] = dashboard_df['inspetor'].fillna('N/A')
-    
-    dashboard_df['data_inspecao_str'] = dashboard_df['data_inspecao'].dt.strftime('%d/%m/%Y %H:%M').fillna('N/A')
-    dashboard_df['data_proxima_inspecao_str'] = dashboard_df['data_proxima_inspecao'].dt.strftime('%d/%m/%Y').fillna('N/A')
-    
-    display_columns = [
-        'id_abrigo', 'status_dashboard', 'data_inspecao', 'data_inspecao_str', 
-        'data_proxima_inspecao_str', 'status_geral', 'inspetor', 'resultados_json'
-    ]
+    dashboard_df['resultados_json'] = dashboard_df['resultados_json'].fillna('{}')
+
+    display_columns = ['id_abrigo', 'status_dashboard', 'data_inspecao_str', 'data_proxima_inspecao_str', 'status_geral', 'inspetor', 'resultados_json']
     existing_columns = [col for col in display_columns if col in dashboard_df.columns]
     
     return dashboard_df[existing_columns]

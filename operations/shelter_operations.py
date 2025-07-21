@@ -1,8 +1,9 @@
 import streamlit as st
 import json
 from gdrive.gdrive_upload import GoogleDriveUploader
-from gdrive.config import SHELTER_SHEET_NAME
-
+from gdrive.config import SHELTER_SHEET_NAME, INSPECTIONS_SHELTER_SHEET_NAME, LOG_SHELTER_SHEET_NAME
+from datetime import date 
+from dateutil.relativedelta import relativedelta 
 def save_shelter_inventory(shelter_id, client, items_dict):
     """
     Salva o inventário de um novo abrigo de emergência na planilha.
@@ -10,25 +11,14 @@ def save_shelter_inventory(shelter_id, client, items_dict):
     """
     try:
         uploader = GoogleDriveUploader()
-        
-        # Converte o dicionário de itens para uma string JSON
         items_json_string = json.dumps(items_dict, ensure_ascii=False)
-        
-        # Prepara a linha de dados
-        data_row = [
-            shelter_id,
-            client,
-            items_json_string,
-            next_inspection_date
-        ]
-        
+        data_row = [shelter_id, client, items_json_string]
         uploader.append_data_to_sheet(SHELTER_SHEET_NAME, data_row)
         return True
-
     except Exception as e:
         st.error(f"Erro ao salvar inventário do abrigo {shelter_id}: {e}")
         return False
-        
+
 def save_shelter_inspection(shelter_id, overall_status, inspection_results, inspector_name):
     """
     Salva o resultado de uma inspeção de abrigo e calcula a próxima data de inspeção.

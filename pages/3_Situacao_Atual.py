@@ -219,18 +219,10 @@ def action_dialog_shelter(shelter_id, problem):
             return
 
         with st.spinner("Registrando ação..."):
-            log_saved = save_shelter_action_log(shelter_id, problem, action_taken, responsible)
-     
-            if not log_saved:
-                st.error("Falha ao salvar o log da ação.")
-                return
-
-            if log_saved:
+            if save_shelter_action_log(shelter_id, problem, action_taken, responsible):
                 st.success("Plano de ação registrado com sucesso! O status será atualizado.")
                 st.cache_data.clear()
                 st.rerun()
-            else:
-                st.error("Falha ao salvar o log da ação.")
 
 @st.dialog("Registrar Ação Corretiva")
 def action_form(item, df_full_history, location):

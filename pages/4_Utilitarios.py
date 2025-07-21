@@ -62,24 +62,19 @@ def show_utilities_page():
             st.subheader("Pré-visualização dos QR Codes Gerados")
             
             cols = st.columns(3)
-            generated_images_bytes = {} # Dicionário para armazenar imagens como bytes {selo: img_bytes}
+            generated_images_bytes = {}
 
             for i, selo in enumerate(selo_list):
                 with cols[i % 3]:
                     st.markdown(f"**Selo: `{selo}`**")
                     qr_img_object = generate_qr_code_image(selo)
                     
-                    # --- CORREÇÃO APLICADA AQUI ---
-                    # Converte a imagem para bytes ANTES de passá-la para os widgets
                     img_bytes = image_to_bytes(qr_img_object)
                     
-                    # Exibe a imagem a partir dos bytes
                     st.image(img_bytes, width=200)
                     
-                    # Armazena os bytes para o download do ZIP
                     generated_images_bytes[selo] = img_bytes
 
-                    # O botão de download individual já usava os bytes, então está correto
                     st.download_button(
                         label="Baixar PNG",
                         data=img_bytes,
@@ -104,7 +99,6 @@ def show_utilities_page():
                 use_container_width=True
             )
 
-# --- Boilerplate de Autenticação ---
 if not show_login_page():
     st.stop()
 show_user_header()

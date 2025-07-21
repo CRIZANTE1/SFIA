@@ -171,6 +171,7 @@ def get_consolidated_status_df(df_full, df_locais):
         
     return dashboard_df
 
+
 @st.dialog("Registrar Plano de Ação para Abrigo")
 def action_dialog_shelter(shelter_id, problem):
     st.write(f"**Abrigo ID:** `{shelter_id}`")
@@ -187,14 +188,33 @@ def action_dialog_shelter(shelter_id, problem):
             return
 
         with st.spinner("Registrando ação e regularizando status..."):
-    
             log_saved = save_shelter_action_log(shelter_id, problem, action_taken, responsible)
             
             if not log_saved:
                 st.error("Falha ao salvar o log da ação. O status não foi atualizado.")
                 return
 
-            inspection_results = {"Observação": f"Ação Corretiva: {action_taken}"}
+            
+            df_shelters = load_sheet_data(SHELTER_SHEET_NAME)
+            shelter_inventory_row = df_shelters[df_shelters['id_abrigo'] == shelter_id]
+            
+            if shelter_inventory_row.empty:
+                st.error(f"Não foi possível encontrar o inventário original para o abrigo {shelter_id}. A regularização falhou.")
+                return
+
+            try:
+                items_dict = json.loads(shelter_inventory_row.iloc[0]['itens_json'])
+                
+                inspection_results = {item: {"status": "OK", "observacao": "Regularizado via ação corretiva"} for item in items_dict}
+                
+                inspection_results["Condições Gerais"] = {
+                    "Lacre": "Sim", "Sinalização": "Sim", "Acesso": "Sim"
+                }
+                
+            except (json.JSONDecodeError, TypeError):
+                st.error(f"O inventário do abrigo {shelter_id} está corrompido na planilha. A regularização falhou.")
+                return
+
             inspection_saved = save_shelter_inspection(
                 shelter_id=shelter_id,
                 overall_status="Aprovado",

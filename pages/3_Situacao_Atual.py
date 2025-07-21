@@ -179,7 +179,7 @@ def show_dashboard_page():
         st.cache_data.clear()
         st.rerun()
 
-    tab_extinguishers, tab_hoses = st.tabs(["🔥 Extintores", "💧 Mangueiras (em breve)"])
+    tab_extinguishers, tab_hoses = st.tabs(["🔥 Extintores", "💧 Mangueiras"])
 
     location = streamlit_js_eval(js_expressions="""
         new Promise(function(resolve, reject) {
@@ -243,9 +243,39 @@ def show_dashboard_page():
                         if st.button("✍️ Registrar Ação Corretiva", key=f"action_{row['numero_identificacao']}", use_container_width=True):
                             action_form(row.to_dict(), df_full_history, location)
 
-    with tab_hoses:
+     with tab_hoses:
         st.header("Dashboard de Mangueiras de Incêndio")
-        st.info("Funcionalidade em desenvolvimento.")
+        df_hoses_history = load_sheet_data(HOSE_SHEET_NAME)
+
+        if df_hoses_history.empty:
+            st.warning("Ainda não há registros de inspeção de mangueiras para exibir.")
+        else:
+            dashboard_df_hoses = get_hose_status_df(df_hoses_history)
+            
+            status_counts = dashboard_df_hoses['status'].value_counts()
+            col1, col2, col3 = st.columns(3)
+            col1.metric("✅ Total de Mangueiras", len(dashboard_df_hoses))
+            col2.metric("🟢 OK", status_counts.get("🟢 OK", 0))
+            col3.metric("🔴 VENCIDO", status_counts.get("🔴 VENCIDO", 0))
+            
+            st.markdown("---")
+            
+            st.subheader("Lista de Mangueiras")
+            st.dataframe(
+                dashboard_df_hoses,
+                column_config={
+                    "id_mangueira": "ID da Mangueira",
+                    "data_inspecao": "Último Teste",
+                    "data_proximo_teste": "Próximo Teste",
+                    "status": "Status",
+                    "link_certificado_pdf": st.column_config.LinkColumn(
+                        "Certificado",
+                        display_text="🔗 Ver PDF"
+                    )
+                },
+                hide_index=True,
+                use_container_width=True
+            )
 
 # --- Boilerplate de Autenticação ---
 if not show_login_page(): st.stop()

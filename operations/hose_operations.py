@@ -23,11 +23,19 @@ def save_hose_inspection(data):
         
         # Prepara a linha de dados para ser inserida na planilha
         data_row = [
-            data.get('id_mangueira'),
+            record.get('id_mangueira'),
+            record.get('marca'),
+            record.get('diametro'),
+            record.get('tipo'),
+            record.get('comprimento'),
+            record.get('ano_fabricacao'),
             inspection_date_obj.isoformat(),
             next_test_date,
-            data.get('link_certificado_pdf'),
-            data.get('inspetor_responsavel')
+            record.get('resultado'),
+            pdf_link,                       
+            user_name,                     
+            record.get('empresa_executante'),
+            record.get('inspetor_responsavel') 
         ]
         
         uploader.append_data_to_sheet(HOSE_SHEET_NAME, data_row)

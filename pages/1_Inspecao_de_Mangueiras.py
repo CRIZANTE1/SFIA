@@ -26,7 +26,8 @@ def show_hose_and_shelter_page():
 
     tab_hoses, tab_shelters = st.tabs([
         "Inspeção de Mangueiras com IA", 
-        "Cadastro de Abrigos de Emergência"
+        "Cadastro de Abrigos de Emergência",
+        "Inspeção de Abrigos"
     ])
 
     with tab_hoses:
@@ -148,6 +149,73 @@ def show_hose_and_shelter_page():
                     st.session_state.shelter_uploaded_pdf = None
                     st.cache_data.clear()
                     st.rerun()
+
+    with tab_shelters_insp:
+        st.header("Realizar Inspeção de um Abrigo de Emergência")
+        
+        # Carregar a lista de abrigos cadastrados
+        df_shelters = load_sheet_data(SHELTER_SHEET_NAME)
+        
+        if df_shelters.empty:
+            st.warning("Nenhum abrigo cadastrado. Por favor, cadastre um abrigo na aba 'Cadastro de Abrigos' primeiro.")
+        else:
+            shelter_ids = ["Selecione um abrigo..."] + df_shelters['id_abrigo'].tolist()
+            selected_shelter_id = st.selectbox("Selecione o Abrigo para Inspecionar", shelter_ids)
+
+            if selected_shelter_id != "Selecione um abrigo...":
+                # Encontrar o inventário do abrigo selecionado
+                shelter_data = df_shelters[df_shelters['id_abrigo'] == selected_shelter_id].iloc[0]
+                try:
+                    items_dict = json.loads(shelter_data['itens_json'])
+                except (json.JSONDecodeError, TypeError):
+                    st.error("Inventário do abrigo selecionado está em um formato inválido na planilha.")
+                    st.stop()
+                
+                st.subheader(f"Checklist para o Abrigo: {selected_shelter_id}")
+
+                with st.form(key=f"inspection_form_{selected_shelter_id}", clear_on_submit=True):
+                    inspection_results = {}
+                    has_issues = False
+                    
+                    st.markdown("##### Itens do Inventário")
+                    for item, expected_qty in items_dict.items():
+                        cols = st.columns([3, 2, 2])
+                        with cols[0]:
+                            st.write(f"**{item}** (Previsto: {expected_qty})")
+                        with cols[1]:
+                            # Usando uma chave única para cada widget
+                            status = st.radio("Status", ["OK", "Avariado", "Faltando"], key=f"status_{item}_{selected_shelter_id}", horizontal=True, label_visibility="collapsed")
+                        with cols[2]:
+                            obs = st.text_input("Obs.", key=f"obs_{item}_{selected_shelter_id}", label_visibility="collapsed")
+                        
+                        inspection_results[item] = {"status": status, "observacao": obs}
+                        if status != "OK":
+                            has_issues = True
+                    
+                    st.markdown("##### Condições Gerais do Abrigo")
+                    geral_lacre = st.radio("Lacre de segurança intacto?", ["Sim", "Não"], key=f"lacre_{selected_shelter_id}", horizontal=True)
+                    geral_sinal = st.radio("Sinalização visível e correta?", ["Sim", "Não"], key=f"sinal_{selected_shelter_id}", horizontal=True)
+                    geral_acesso = st.radio("Acesso desobstruído?", ["Sim", "Não"], key=f"acesso_{selected_shelter_id}", horizontal=True)
+
+                    if geral_lacre == "Não" or geral_sinal == "Não" or geral_acesso == "Não":
+                        has_issues = True
+                    
+                    inspection_results["Condições Gerais"] = {
+                        "Lacre": geral_lacre, "Sinalização": geral_sinal, "Acesso": geral_acesso
+                    }
+
+                    submitted = st.form_submit_button("✅ Salvar Inspeção", type="primary", use_container_width=True)
+
+                    if submitted:
+                        overall_status = "Reprovado com Pendências" if has_issues else "Aprovado"
+                        with st.spinner("Salvando resultado da inspeção..."):
+                            if save_shelter_inspection(selected_shelter_id, overall_status, inspection_results, get_user_display_name()):
+                                st.success(f"Inspeção do abrigo '{selected_shelter_id}' salva com sucesso como '{overall_status}'!")
+                                st.balloons() if not has_issues else None
+                                st.cache_data.clear()
+                            else:
+                                st.error("Ocorreu um erro ao salvar a inspeção.")
+                                
 
 if not show_login_page(): 
     st.stop()

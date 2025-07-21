@@ -59,40 +59,68 @@ def get_hose_status_df(df_hoses):
     return df_hoses[existing_display_columns]
 
 
-def get_shelter_status_df(df_shelters_registered, df_inspections):
+def get_shelter_status_df(df_shelters_registered, df_inspections, df_action_log):
     if df_shelters_registered.empty:
         return pd.DataFrame()
 
+    # --- Prepara os DataFrames ---
     if not df_inspections.empty:
         df_inspections['data_inspecao'] = pd.to_datetime(df_inspections['data_inspecao'], errors='coerce')
-        latest_inspections = df_inspections.sort_values('data_inspecao', ascending=False).drop_duplicates(subset='id_abrigo', keep='first')
-        
-        dashboard_df = pd.merge(
-            df_shelters_registered[['id_abrigo', 'cliente']],
-            latest_inspections,
-            on='id_abrigo',
-            how='left'
-        )
-    else:
-        dashboard_df = df_shelters_registered.copy()
-        for col in ['data_inspecao', 'data_proxima_inspecao', 'status_geral', 'inspetor']:
-            dashboard_df[col] = pd.NaT
+    if not df_action_log.empty:
+        df_action_log['data_acao'] = pd.to_datetime(df_action_log['data_acao'], errors='coerce')
 
-    today = pd.Timestamp(date.today())
-    dashboard_df['data_proxima_inspecao'] = pd.to_datetime(dashboard_df['data_proxima_inspecao'], errors='coerce')
+    # --- Lógica Principal ---
+    status_list = []
+    for _, shelter in df_shelters_registered.iterrows():
+        shelter_id = shelter['id_abrigo']
+        
+        # Encontra a última inspeção para este abrigo
+        last_inspection = df_inspections[df_inspections['id_abrigo'] == shelter_id].sort_values('data_inspecao', ascending=False).iloc[0:1]
+
+        if last_inspection.empty:
+            status = "🔵 PENDENTE (Nova Inspeção)"
+            status_list.append({'id_abrigo': shelter_id, 'status_dashboard': status, 'data_proxima_inspecao': pd.NaT})
+            continue
+
+        last_inspection_row = last_inspection.iloc[0]
+        last_inspection_date = last_inspection_row['data_inspecao']
+        next_inspection_date = pd.to_datetime(last_inspection_row['data_proxima_inspecao'], errors='coerce')
+        
+        # 1. Determina o status inicial baseado na inspeção
+        today = pd.Timestamp(date.today())
+        status = "🟢 OK"
+        if pd.notna(next_inspection_date) and next_inspection_date < today:
+            status = "🔴 VENCIDO"
+        elif last_inspection_row['status_geral'] == 'Reprovado com Pendências':
+            status = "🟠 COM PENDÊNCIAS"
+
+        # 2. LÓGICA DE CORREÇÃO: Verifica o log de ações
+        if status == "🟠 COM PENDÊNCIAS":
+            # Procura por uma ação realizada DEPOIS da data da inspeção pendente
+            relevant_actions = df_action_log[
+                (df_action_log['id_abrigo'] == shelter_id) &
+                (df_action_log['data_acao'] > last_inspection_date)
+            ]
+            if not relevant_actions.empty:
+                # Se encontrou uma ação, a pendência foi resolvida!
+                status = "🟢 OK (Ação Realizada)"
+        
+        # Junta os dados para a linha final do dashboard
+        merged_row = {**last_inspection_row.to_dict(), 'status_dashboard': status}
+        status_list.append(merged_row)
+
+    if not status_list:
+        return pd.DataFrame()
+        
+    dashboard_df = pd.DataFrame(status_list)
     
-    conditions = [
-        (dashboard_df['data_inspecao'].isna()),
-        (dashboard_df['data_proxima_inspecao'] < today),
-        (dashboard_df['status_geral'] == 'Reprovado com Pendências')
-    ]
-    choices = ['🔵 PENDENTE (Nova Inspeção)', '🔴 VENCIDO', '🟠 COM PENDÊNCIAS']
-    dashboard_df['status_dashboard'] = np.select(conditions, choices, default='🟢 OK')
-    
-    dashboard_df['data_proxima_inspecao_str'] = dashboard_df['data_proxima_inspecao'].dt.strftime('%d/%m/%Y').fillna('N/A')
+    # Formata as colunas para exibição
+    dashboard_df['data_inspecao'] = dashboard_df['data_inspecao'].dt.strftime('%d/%m/%Y').fillna('N/A')
+    dashboard_df['data_proxima_inspecao'] = dashboard_df['data_proxima_inspecao'].dt.strftime('%d/%m/%Y').fillna('N/A')
     dashboard_df['inspetor'] = dashboard_df['inspetor'].fillna('N/A')
     
-    return dashboard_df
+    display_columns = ['id_abrigo', 'status_dashboard', 'data_inspecao', 'data_proxima_inspecao', 'status_geral', 'inspetor']
+    return dashboard_df[display_columns]
 
 
 
@@ -184,7 +212,6 @@ def action_dialog_shelter(shelter_id, problem):
     responsible = st.text_input("Responsável pela ação:", value=get_user_display_name())
     
     st.markdown("---")
-    new_inspection = st.checkbox("Realizar nova inspeção agora para regularizar o status?", value=True)
     
     if st.button("Salvar Ação", type="primary"):
         if not action_taken:
@@ -193,21 +220,17 @@ def action_dialog_shelter(shelter_id, problem):
 
         with st.spinner("Registrando ação..."):
             log_saved = save_shelter_action_log(shelter_id, problem, action_taken, responsible)
-            
+     
             if not log_saved:
                 st.error("Falha ao salvar o log da ação.")
                 return
 
-            if new_inspection:
-                inspection_results = {"Condições Gerais": {"Lacre": "Sim", "Sinalização": "Sim", "Acesso": "Sim"}}
-                inspection_saved = save_shelter_inspection(shelter_id, "Aprovado", inspection_results, get_user_display_name())
-                if not inspection_saved:
-                    st.error("Log salvo, mas falha ao registrar a nova inspeção de regularização.")
-                    return
-            
-            st.success("Plano de ação registrado com sucesso!")
-            st.cache_data.clear()
-            st.rerun()
+            if log_saved:
+                st.success("Plano de ação registrado com sucesso! O status será atualizado.")
+                st.cache_data.clear()
+                st.rerun()
+            else:
+                st.error("Falha ao salvar o log da ação.")
 
 @st.dialog("Registrar Ação Corretiva")
 def action_form(item, df_full_history, location):
@@ -422,7 +445,7 @@ def show_dashboard_page():
                 st.success("Relatório de status enviado para impressão!")
             st.markdown("---")
 
-            dashboard_df_shelters = get_shelter_status_df(df_shelters_registered, df_inspections_history)
+            dashboard_df_shelters = get_shelter_status_df(df_shelters_registered, df_inspections_history, df_action_log)
 
             status_counts = dashboard_df_shelters['status_dashboard'].value_counts()
             col1, col2, col3, col4 = st.columns(4)
@@ -435,12 +458,10 @@ def show_dashboard_page():
             st.subheader("Lista de Abrigos e Status")
             for _, row in dashboard_df_shelters.iterrows():
                 status = row['status_dashboard']
-                # Usando a coluna de string para exibição
                 prox_inspecao_str = row['data_proxima_inspecao_str']
                 expander_title = f"{status} | **ID:** {row['id_abrigo']} | **Próx. Inspeção:** {prox_inspecao_str}"
                 
                 with st.expander(expander_title):
-                    # Formata a data de objeto para string aqui para exibição
                     data_inspecao_str = pd.to_datetime(row['data_inspecao']).strftime('%d/%m/%Y') if pd.notna(row['data_inspecao']) else 'N/A'
                     st.write(f"**Última inspeção:** {data_inspecao_str} por **{row['inspetor']}**")
                     st.write(f"**Resultado da última inspeção:** {row.get('status_geral', 'N/A')}")
@@ -450,7 +471,6 @@ def show_dashboard_page():
                         if st.button("✍️ Registrar Ação", key=f"action_{row['id_abrigo']}", use_container_width=True):
                             action_dialog_shelter(row['id_abrigo'], problem_description)
                     
-                    # Convertendo a data de inspeção da linha atual para comparar com o histórico
                     if pd.notna(row['data_inspecao']):
                         detail_row = df_inspections_history[
                             (df_inspections_history['id_abrigo'] == row['id_abrigo']) & 

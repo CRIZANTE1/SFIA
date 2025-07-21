@@ -325,52 +325,45 @@ def show_dashboard_page():
             )
 
     with tab_shelters:
-        st.header("Inventário dos Abrigos de Emergência")
-        df_shelters = load_sheet_data(SHELTER_SHEET_NAME)
+        st.header("Dashboard de Status dos Abrigos de Emergência")
+        df_inspections_history = load_sheet_data(INSPECTIONS_SHELTER_SHEET_NAME)
 
-        if df_shelters.empty:
-            st.warning("Nenhum abrigo de emergência cadastrado.")
+        if df_inspections_history.empty:
+            st.warning("Nenhuma inspeção de abrigo registrada.")
         else:
-            st.info("Clique em cada abrigo para ver seu inventário ou gere um PDF com todos os dados.")
-            
-            # Botão para gerar e imprimir o PDF
-            if st.button("📄 Gerar PDF para Impressão", type="primary"):
-                report_html = generate_shelters_html(df_shelters)
-                js_code = f"""
-                    const reportHtml = {json.dumps(report_html)};
-                    const printWindow = window.open('', '_blank');
-                    if (printWindow) {{
-                        printWindow.document.write(reportHtml);
-                        printWindow.document.close();
-                        printWindow.focus();
-                        setTimeout(() => {{ printWindow.print(); printWindow.close(); }}, 500);
-                    }} else {{
-                        alert('Por favor, desabilite o bloqueador de pop-ups para este site.');
-                    }}
-                """
-                streamlit_js_eval(js_expressions=js_code, key="print_shelters_js")
-                st.success("Relatório enviado para impressão!")
-
+            dashboard_df_shelters = get_shelter_status_df(df_inspections_history)
+            status_counts = dashboard_df_shelters['status_dashboard'].value_counts()
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("✅ Total de Abrigos", len(dashboard_df_shelters))
+            col2.metric("🟢 OK", status_counts.get("🟢 OK", 0))
+            col3.metric("🟠 Com Pendências", status_counts.get("🟠 COM PENDÊNCIAS", 0))
+            col4.metric("🔴 Vencido", status_counts.get("🔴 VENCIDO", 0))
             st.markdown("---")
-            st.subheader("Lista de Abrigos Cadastrados")
+            st.subheader("Lista de Abrigos e Status")
 
-            # Visualização na própria página usando st.expander
-            for _, row in df_shelters.iterrows():
-                # Título do expander, mais informativo
-                expander_title = f"🧯 **ID:** {row['id_abrigo']} | **Cliente:** {row['cliente']}"
+            for _, row in dashboard_df_shelters.iterrows():
+                status = row['status_dashboard']
+                expander_title = f"{status} | **ID:** {row['id_abrigo']} | **Próx. Inspeção:** {row['data_proxima_inspecao']}"
                 
                 with st.expander(expander_title):
-                    try:
-                        # Tenta carregar os itens do JSON na planilha
-                        items_dict = json.loads(row['itens_json'])
-                        if items_dict:
-                            # Cria um DataFrame a partir do dicionário de itens para uma exibição elegante
-                            items_df = pd.DataFrame(items_dict.items(), columns=["Item", "Quantidade Prevista"])
-                            st.table(items_df)
-                        else:
-                            st.info("Nenhum item inventariado para este abrigo.")
-                    except (json.JSONDecodeError, TypeError):
-                        st.error("Formato do inventário inválido na planilha. Verifique a coluna 'itens_json'.")
+                    st.write(f"**Última inspeção:** {row['data_inspecao']} por **{row['inspetor']}**")
+                    st.write(f"**Resultado da última inspeção:** {row['status_geral']}")
+                    
+                    # Botão para registrar ação, visível apenas se não estiver OK
+                    if status != "🟢 OK":
+                        if st.button("✍️ Registrar Plano de Ação", key=f"action_{row['id_abrigo']}", use_container_width=True):
+                            action_dialog_shelter(row['id_abrigo'], row['status_geral'])
+
+                    # Carregar detalhes da inspeção para mostrar os itens
+                    full_record = load_sheet_data(INSPECTIONS_SHELTER_SHEET_NAME)
+                    detail_row = full_record[(full_record['id_abrigo'] == row['id_abrigo']) & (pd.to_datetime(full_record['data_inspecao']).dt.strftime('%d/%m/%Y') == row['data_inspecao'])]
+                    if not detail_row.empty:
+                        try:
+                            results_dict = json.loads(detail_row.iloc[0]['resultados_json'])
+                            results_df = pd.DataFrame.from_dict(results_dict, orient='index')
+                            st.table(results_df)
+                        except (json.JSONDecodeError, TypeError):
+                            st.error("Não foi possível carregar os detalhes desta inspeção.")
 
 
 

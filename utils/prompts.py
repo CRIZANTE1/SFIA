@@ -72,7 +72,7 @@ def get_hose_inspection_prompt():
     7.  `data_inspecao`: Use a data global do relatório, especificamente a "Data saída". Formate como YYYY-MM-DD.
     8.  `empresa_executante`: Extraia do campo "Vendedor" ou do nome da empresa no topo.
     9.  `inspetor_responsavel`: Extraia do campo "Responsável Técnico".
-    10. `resultado`: Extraia da coluna "Resultado Final". 'A' significa "Aprovado".
+    10. `resultado`: Extraia da coluna "Resultado Final". 'A' significa "Aprovado" (vide legenda do laudo).
 
     **Formato de Saída OBRIGATÓRIO:**
     Retorne a resposta APENAS como um objeto JSON com uma chave "mangueiras" contendo uma LISTA de objetos,
@@ -91,7 +91,7 @@ def get_hose_inspection_prompt():
           "data_inspecao": "2024-10-04",
           "empresa_executante": "EXTINTORES ARMENIA",
           "inspetor_responsavel": "Renato Busch",
-          "resultado": "A"
+          "resultado": "APROVADO"
         },
         {
           "id_mangueira": "48",
@@ -103,7 +103,7 @@ def get_hose_inspection_prompt():
           "data_inspecao": "2024-10-04",
           "empresa_executante": "EXTINTORES ARMENIA",
           "inspetor_responsavel": "Renato Busch",
-          "resultado": "A"
+          "resultado": "APROVADO"
         }
       ]
     }

@@ -20,36 +20,49 @@ from operations.photo_operations import upload_evidence_photo
 set_page_config()
 
 
-def get_hose_status_df(df_hoses):
-    if df_hoses.empty:
-        return pd.DataFrame()
-    
-    # Garante que as colunas de data existam e as converte
-    for col in ['data_inspecao', 'data_proximo_teste']:
-        if col not in df_hoses.columns:
-            df_hoses[col] = pd.NaT # Cria a coluna vazia se não existir
-        df_hoses[col] = pd.to_datetime(df_hoses[col], errors='coerce')
+def save_hose_inspection(record, pdf_link, user_name):
+    """
+    Salva um novo registro de inspeção de mangueira na planilha, 
+    utilizando todos os dados extraídos pela IA.
+    Calcula automaticamente a data do próximo teste.
+    """
+    try:
+        uploader = GoogleDriveUploader()
+        
+        inspection_date_str = record.get('data_inspecao')
+        
+        try:
+            inspection_date_obj = pd.to_datetime(inspection_date_str).date()
+        except (ValueError, TypeError):
+            st.warning(f"Data de inspeção inválida para ID {record.get('id_mangueira')}: '{inspection_date_str}'. Usando data de hoje.")
+            inspection_date_obj = date.today()
+            
+        # Calcula a data do próximo teste (anual)
+        next_test_date = (inspection_date_obj + relativedelta(years=1)).isoformat()
+        
+        # Prepara a linha de dados para ser inserida na planilha com TODAS as colunas
+        data_row = [
+            record.get('id_mangueira'),
+            record.get('marca'),
+            record.get('diametro'),
+            record.get('tipo'),
+            record.get('comprimento'),
+            record.get('ano_fabricacao'),
+            inspection_date_obj.isoformat(),
+            next_test_date,
+            record.get('resultado'),
+            pdf_link,  # Link do certificado PDF
+            user_name, # Usuário do sistema que registrou
+            record.get('empresa_executante'),
+            record.get('inspetor_responsavel') # Responsável técnico do certificado
+        ]
+        
+        uploader.append_data_to_sheet(HOSE_SHEET_NAME, data_row)
+        return True
 
-    # Pega o registro mais recente para cada mangueira, mantendo todas as colunas
-    df_hoses = df_hoses.sort_values('data_inspecao', ascending=False).drop_duplicates(subset='id_mangueira', keep='first')
-    
-    # Verifica o status de vencimento
-    today = pd.Timestamp(date.today())
-    df_hoses['status'] = np.where(df_hoses['data_proximo_teste'] < today, "🔴 VENCIDO", "🟢 OK")
-    
-    # Formata as datas de volta para string para exibição limpa
-    df_hoses['data_inspecao'] = df_hoses['data_inspecao'].dt.strftime('%d/%m/%Y')
-    df_hoses['data_proximo_teste'] = df_hoses['data_proximo_teste'].dt.strftime('%d/%m/%Y')
-    
-    # Define e reordena as colunas que queremos mostrar no dashboard
-    display_columns = [
-        'id_mangueira', 'status', 'marca', 'diametro', 'tipo',
-        'comprimento', 'ano_fabricacao', 'data_inspecao',
-        'data_proximo_teste', 'link_certificado_pdf', 'registrado_por'
-    ]
-    
-    # Filtra o dataframe para conter apenas as colunas de exibição existentes
-    existing_display_columns = [col for col in display_columns if col in df_hoses.columns]
+    except Exception as e:
+        st.error(f"Erro ao salvar inspeção da mangueira {record.get('id_mangueira')}: {e}")
+        return False
     
     return df_hoses[existing_display_columns]
 def get_consolidated_status_df(df_full, df_locais):

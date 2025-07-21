@@ -12,6 +12,8 @@ from operations.hose_operations import save_hose_inspection
 from operations.shelter_operations import save_shelter_inventory 
 from gdrive.gdrive_upload import GoogleDriveUploader
 from AI.api_Operation import PDFQA
+from gdrive.config import SHELTER_SHEET_NAME
+from operations.history import load_sheet_data 
 from utils.prompts import get_hose_inspection_prompt, get_shelter_inventory_prompt
 from auth.login_page import show_login_page, show_user_header, show_logout_button
 from auth.auth_utils import is_admin_user, get_user_display_name

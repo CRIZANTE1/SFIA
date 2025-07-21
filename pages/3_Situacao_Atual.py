@@ -8,7 +8,6 @@ import numpy as np
 import json
 from streamlit_js_eval import streamlit_js_eval
 
-# Adiciona o diretório raiz ao path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from operations.history import load_sheet_data, find_last_record
 from auth.login_page import show_login_page, show_user_header, show_logout_button
@@ -19,6 +18,7 @@ from gdrive.config import HOSE_SHEET_NAME, SHELTER_SHEET_NAME, INSPECTIONS_SHELT
 from reports.reports_pdf import generate_shelters_html
 from operations.shelter_operations import save_shelter_action_log, save_shelter_inspection
 from operations.corrective_actions import save_corrective_action
+from reports.reports_pdf import generate_shelters_html 
 from operations.photo_operations import upload_evidence_photo
 
 
@@ -417,17 +417,38 @@ def show_dashboard_page():
         if df_shelters_registered.empty:
             st.warning("Nenhum abrigo de emergência cadastrado.")
         else:
+            st.info("Aqui está o status de todos os abrigos. Gere um PDF de inventário para impressão ou registre ações corretivas.")
+            if st.button("📄 Gerar Inventário em PDF para Impressão", type="primary"):
+                report_html = generate_shelters_html(df_shelters_registered)
+                js_code = f"""
+                    const reportHtml = {json.dumps(report_html)};
+                    const printWindow = window.open('', '_blank');
+                    if (printWindow) {{
+                        printWindow.document.write(reportHtml);
+                        printWindow.document.close();
+                        printWindow.focus();
+                        setTimeout(() => {{ printWindow.print(); printWindow.close(); }}, 500);
+                    }} else {{
+                        alert('Por favor, desabilite o bloqueador de pop-ups para este site.');
+                    }}
+                """
+                streamlit_js_eval(js_expressions=js_code, key="print_shelters_js")
+                st.success("Relatório de inventário enviado para impressão!")
+            st.markdown("---")
+
             dashboard_df_shelters = get_shelter_status_df(df_shelters_registered, df_inspections_history)
-            
+
+            # Métricas
             status_counts = dashboard_df_shelters['status_dashboard'].value_counts()
             col1, col2, col3, col4 = st.columns(4)
             col1.metric("✅ Total de Abrigos", len(dashboard_df_shelters))
             col2.metric("🟢 OK", status_counts.get("🟢 OK", 0))
-            col3.metric("🟠 Com Pendências", status_counts.get("🟠 COM PENDÊNCIAS", 0) + status_counts.get("🔵 PENDENTE (Nova Inspeção)", 0))
+            col3.metric("🟠 Pendentes/Não-Conforme", status_counts.get("🟠 COM PENDÊNCIAS", 0) + status_counts.get("🔵 PENDENTE (Nova Inspeção)", 0))
             col4.metric("🔴 Vencido", status_counts.get("🔴 VENCIDO", 0))
+            
             st.markdown("---")
+            
             st.subheader("Lista de Abrigos e Status")
-
             for _, row in dashboard_df_shelters.iterrows():
                 status = row['status_dashboard']
                 expander_title = f"{status} | **ID:** {row['id_abrigo']} | **Próx. Inspeção:** {row['data_proxima_inspecao']}"
@@ -437,12 +458,15 @@ def show_dashboard_page():
                     st.write(f"**Resultado da última inspeção:** {row['status_geral']}")
                     
                     if status != "🟢 OK":
-                        if st.button("✍️ Registrar Plano de Ação", key=f"action_{row['id_abrigo']}", use_container_width=True):
-                            action_dialog_shelter(row['id_abrigo'], row['status_geral'])
-
-                    # Carregar detalhes da inspeção para mostrar os itens
-                    full_record = load_sheet_data(INSPECTIONS_SHELTER_SHEET_NAME)
-                    detail_row = full_record[(full_record['id_abrigo'] == row['id_abrigo']) & (pd.to_datetime(full_record['data_inspecao']).dt.strftime('%d/%m/%Y') == row['data_inspecao'])]
+                        problem_description = status.replace("🔴 ", "").replace("🟠 ", "").replace("🔵 ", "")
+                        if st.button("✍️ Registrar Ação", key=f"action_{row['id_abrigo']}", use_container_width=True):
+                            action_dialog_shelter(row['id_abrigo'], problem_description)
+                    
+                    detail_row = df_inspections_history[
+                        (df_inspections_history['id_abrigo'] == row['id_abrigo']) & 
+                        (pd.to_datetime(df_inspections_history['data_inspecao']).dt.strftime('%d/%m/%Y') == row['data_inspecao'])
+                    ]
+                    
                     if not detail_row.empty:
                         try:
                             results_dict = json.loads(detail_row.iloc[0]['resultados_json'])

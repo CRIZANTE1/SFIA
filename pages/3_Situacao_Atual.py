@@ -137,7 +137,44 @@ def get_consolidated_status_df(df_full, df_locais):
         dashboard_df['status_instalacao'] = "⚠️ Local não definido"
         
     return dashboard_df
+
+@st.dialog("Registrar Plano de Ação para Abrigo")
+def action_dialog_shelter(shelter_id, problem):
+    st.write(f"**Abrigo ID:** `{shelter_id}`")
+    st.write(f"**Problema Identificado:** `{problem}`")
     
+    action_taken = st.text_area("Descreva a ação corretiva realizada:")
+    responsible = st.text_input("Responsável pela ação:", value=get_user_display_name())
+    
+    st.markdown("---")
+    new_inspection = st.checkbox("Realizar nova inspeção agora para regularizar o status?", value=True)
+    
+    if st.button("Salvar Ação", type="primary"):
+        if not action_taken:
+            st.error("Por favor, descreva a ação realizada.")
+            return
+
+        with st.spinner("Registrando ação..."):
+            # Salva o log da ação
+            log_saved = save_shelter_action_log(shelter_id, problem, action_taken, responsible)
+            
+            if not log_saved:
+                st.error("Falha ao salvar o log da ação.")
+                return
+
+            # Se o usuário marcou, realiza uma nova inspeção "OK"
+            if new_inspection:
+                # Criamos um resultado de inspeção "perfeito" para regularizar
+                inspection_results = {"Condições Gerais": {"Lacre": "Sim", "Sinalização": "Sim", "Acesso": "Sim"}}
+                inspection_saved = save_shelter_inspection(shelter_id, "Aprovado", inspection_results, get_user_display_name())
+                if not inspection_saved:
+                    st.error("Log salvo, mas falha ao registrar a nova inspeção de regularização.")
+                    return
+            
+            st.success("Plano de ação registrado com sucesso!")
+            st.cache_data.clear()
+            st.rerun()
+
 @st.dialog("Registrar Ação Corretiva")
 def action_form(item, df_full_history, location):
     # (Esta função permanece sem alterações)

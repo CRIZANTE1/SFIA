@@ -2,14 +2,10 @@ import os
 import json
 import streamlit as st
 
-# ID da pasta no Google Drive onde os arquivos serão salvos
-GDRIVE_FOLDER_ID = "1poFC4ymPbPfZvJuSBK15ClLA3xb76vwQ" # Mantenha o seu ID
+GDRIVE_FOLDER_ID = "1poFC4ymPbPfZvJuSBK15ClLA3xb76vwQ"
 
-# ID da sua planilha Google
-GDRIVE_SHEETS_ID = "1I7plDJVUwXCKByakjxMPKDBa7in5K4MgS5YFn9gmhW0" # Mantenha o seu ID
+GDRIVE_SHEETS_ID = "1I7plDJVUwXCKByakjxMPKDBa7in5K4MgS5YFn9gmhW0" 
 
-# --- Nomes das Abas na Planilha ---
-# Certifique-se de que sua planilha tenha abas com EXATAMENTE estes nomes.
 ADMIN_SHEET_NAME = "adm"
 EXTINGUISHER_SHEET_NAME = "extintores"
 LOG_ACTIONS = "log_acoes"
@@ -20,7 +16,6 @@ LOG_SHELTER_SHEET_NAME = "log_abrigos"
 
 def get_credentials_dict():
     """Retorna as credenciais do serviço do Google, seja do arquivo local ou do Streamlit Cloud."""
-    # O resto da função continua igual, não precisa mudar.
     if st.runtime.exists():
         try:
             return {

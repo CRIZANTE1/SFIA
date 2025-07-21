@@ -13,7 +13,7 @@ GDRIVE_SHEETS_ID = "1I7plDJVUwXCKByakjxMPKDBa7in5K4MgS5YFn9gmhW0" # Mantenha o s
 ADMIN_SHEET_NAME = "adm"
 EXTINGUISHER_SHEET_NAME = "extintores"
 LOG_ACTIONS = "log_acoes"
-
+HOSE_SHEET_NAME = "mangueiras"
 
 def get_credentials_dict():
     """Retorna as credenciais do serviço do Google, seja do arquivo local ou do Streamlit Cloud."""

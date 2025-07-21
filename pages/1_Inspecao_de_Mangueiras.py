@@ -24,7 +24,7 @@ pdf_qa = PDFQA()
 def show_hose_and_shelter_page():
     st.title("💧 Gestão de Mangueiras e Abrigos de Incêndio")
 
-    tab_hoses, tab_shelters = st.tabs([
+    tab_hoses, tab_shelters, tab_shelters_insp = st.tabs([
         "Inspeção de Mangueiras com IA", 
         "Cadastro de Abrigos de Emergência",
         "Inspeção de Abrigos"
@@ -58,7 +58,6 @@ def show_hose_and_shelter_page():
                     st.json(extracted_data)
         
         if st.session_state.hose_step == 'confirm' and st.session_state.hose_processed_data:
-            # ... (código do passo de confirmação, sem alterações)
             st.subheader("2. Confira os Dados Extraídos e Salve no Sistema")
             st.dataframe(pd.DataFrame(st.session_state.hose_processed_data))
             

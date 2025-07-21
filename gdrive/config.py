@@ -15,6 +15,7 @@ EXTINGUISHER_SHEET_NAME = "extintores"
 LOG_ACTIONS = "log_acoes"
 HOSE_SHEET_NAME = "mangueiras"
 SHELTER_SHEET_NAME = "abrigos"
+LOG_SHELTER_SHEET_NAME = "log_abrigos"
 
 def get_credentials_dict():
     """Retorna as credenciais do serviço do Google, seja do arquivo local ou do Streamlit Cloud."""

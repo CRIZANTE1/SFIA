@@ -1,3 +1,8 @@
+import json
+import pandas as pd
+import base64
+import requests
+
 def generate_shelters_html(df_shelters):
     styles = """
     <style>
@@ -36,3 +41,4 @@ def generate_shelters_html(df_shelters):
 
     html += "</body></html>"
     return html
+

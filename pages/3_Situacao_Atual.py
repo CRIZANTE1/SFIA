@@ -289,7 +289,7 @@ def show_dashboard_page():
                         if st.button("✍️ Registrar Ação Corretiva", key=f"action_{row['numero_identificacao']}", use_container_width=True):
                             action_form(row.to_dict(), df_full_history, location)
 
-     with tab_hoses:
+    with tab_hoses:
         st.header("Dashboard de Mangueiras de Incêndio")
         df_hoses_history = load_sheet_data(HOSE_SHEET_NAME)
 

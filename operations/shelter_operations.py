@@ -18,7 +18,8 @@ def save_shelter_inventory(shelter_id, client, items_dict):
         data_row = [
             shelter_id,
             client,
-            items_json_string
+            items_json_string,
+            next_inspection_date
         ]
         
         uploader.append_data_to_sheet(SHELTER_SHEET_NAME, data_row)

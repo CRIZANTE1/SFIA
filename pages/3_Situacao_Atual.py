@@ -27,37 +27,38 @@ set_page_config()
 
 
 def get_hose_status_df(df_hoses):
-    if df_hoses.empty:
+    if df_inspections.empty:
         return pd.DataFrame()
     
-    # Garante que as colunas de data existam e as converte
-    for col in ['data_inspecao', 'data_proximo_teste']:
-        if col not in df_hoses.columns:
-            df_hoses[col] = pd.NaT # Cria a coluna vazia se não existir
-        df_hoses[col] = pd.to_datetime(df_hoses[col], errors='coerce')
-
-    # Pega o registro mais recente para cada mangueira, mantendo todas as colunas
-    df_hoses = df_hoses.sort_values('data_inspecao', ascending=False).drop_duplicates(subset='id_mangueira', keep='first')
+    # Garante que a coluna de data exista e a converte
+    df_inspections['data_inspecao'] = pd.to_datetime(df_inspections['data_inspecao'], errors='coerce')
+    
+    # Pega o registro mais recente para cada abrigo
+    latest_inspections = df_inspections.sort_values('data_inspecao', ascending=False).drop_duplicates(subset='id_abrigo', keep='first').copy()
     
     # Verifica o status de vencimento
+    latest_inspections['data_proxima_inspecao'] = pd.to_datetime(latest_inspections['data_proxima_inspecao'], errors='coerce')
     today = pd.Timestamp(date.today())
-    df_hoses['status'] = np.where(df_hoses['data_proximo_teste'] < today, "🔴 VENCIDO", "🟢 OK")
     
-    # Formata as datas de volta para string para exibição limpa
-    df_hoses['data_inspecao'] = df_hoses['data_inspecao'].dt.strftime('%d/%m/%Y')
-    df_hoses['data_proximo_teste'] = df_hoses['data_proximo_teste'].dt.strftime('%d/%m/%Y')
-    
-    # Define e reordena as colunas que queremos mostrar no dashboard
-    display_columns = [
-        'id_mangueira', 'status', 'marca', 'diametro', 'tipo',
-        'comprimento', 'ano_fabricacao', 'data_inspecao',
-        'data_proximo_teste', 'link_certificado_pdf', 'registrado_por'
+    # Define a coluna de status com base nas condições
+    conditions = [
+        (latest_inspections['data_proxima_inspecao'] < today),
+        (latest_inspections['status_geral'] == 'Reprovado com Pendências')
     ]
+    choices = ['🔴 VENCIDO', '🟠 COM PENDÊNCIAS']
+    latest_inspections['status_dashboard'] = np.select(conditions, choices, default='🟢 OK')
     
-    # Filtra o dataframe para conter apenas as colunas de exibição existentes
-    existing_display_columns = [col for col in display_columns if col in df_hoses.columns]
+    # Formata datas para exibição
+    latest_inspections['data_inspecao'] = latest_inspections['data_inspecao'].dt.strftime('%d/%m/%Y')
+    latest_inspections['data_proxima_inspecao'] = latest_inspections['data_proxima_inspecao'].dt.strftime('%d/%m/%Y')
     
-    return df_hoses[existing_display_columns]
+    # Seleciona as colunas para o dashboard
+    display_columns = ['id_abrigo', 'status_dashboard', 'data_inspecao', 'data_proxima_inspecao', 'status_geral', 'inspetor']
+    
+    # Garante que apenas colunas existentes sejam retornadas
+    existing_display_columns = [col for col in display_columns if col in latest_inspections.columns]
+    
+    return latest_inspections[existing_display_columns]
 
 
 

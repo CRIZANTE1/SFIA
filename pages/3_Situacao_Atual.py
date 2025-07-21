@@ -25,6 +25,38 @@ from operations.photo_operations import upload_evidence_photo
 
 set_page_config()
 
+def get_hose_status_df(df_hoses):
+    if df_hoses.empty:
+        return pd.DataFrame()
+    
+    # Garante que as colunas de data existam e as converte
+    for col in ['data_inspecao', 'data_proximo_teste']:
+        if col not in df_hoses.columns:
+            df_hoses[col] = pd.NaT
+        df_hoses[col] = pd.to_datetime(df_hoses[col], errors='coerce')
+
+    # Pega o registro mais recente para cada mangueira, mantendo todas as colunas
+    df_hoses = df_hoses.sort_values('data_inspecao', ascending=False).drop_duplicates(subset='id_mangueira', keep='first').copy()
+    
+    # Verifica o status de vencimento
+    today = pd.Timestamp(date.today())
+    df_hoses['status'] = np.where(df_hoses['data_proximo_teste'] < today, "🔴 VENCIDO", "🟢 OK")
+    
+    # Formata as datas de volta para string para exibição limpa
+    df_hoses['data_inspecao'] = df_hoses['data_inspecao'].dt.strftime('%d/%m/%Y')
+    df_hoses['data_proximo_teste'] = df_hoses['data_proximo_teste'].dt.strftime('%d/%m/%Y')
+    
+    # Define e reordena as colunas que queremos mostrar no dashboard
+    display_columns = [
+        'id_mangueira', 'status', 'marca', 'diametro', 'tipo',
+        'comprimento', 'ano_fabricacao', 'data_inspecao',
+        'data_proximo_teste', 'link_certificado_pdf', 'registrado_por'
+    ]
+    
+    # Filtra o dataframe para conter apenas as colunas de exibição existentes
+    existing_display_columns = [col for col in display_columns if col in df_hoses.columns]
+    
+    return df_hoses[existing_display_columns]
 
 def get_shelter_status_df(df_inspections):
     if df_inspections.empty:

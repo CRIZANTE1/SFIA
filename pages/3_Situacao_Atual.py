@@ -561,19 +561,14 @@ def show_dashboard_page():
     with tab_scba:
         st.header("Dashboard de Status dos Conjuntos Autônomos")
         
-        df_scba_main_raw = load_sheet_data(SCBA_SHEET_NAME)
-        df_scba_visual_raw = load_sheet_data(SCBA_VISUAL_INSPECTIONS_SHEET_NAME)
+        # Carrega os dados diretamente como DataFrames
+        df_scba_main = load_sheet_data(SCBA_SHEET_NAME)
+        df_scba_visual = load_sheet_data(SCBA_VISUAL_INSPECTIONS_SHEET_NAME)
 
-        if not df_scba_main_raw or len(df_scba_main_raw) < 2:
+        # A VERIFICAÇÃO AGORA USA .empty
+        if df_scba_main.empty:
             st.warning("Nenhum teste de equipamento (Posi3) registrado.")
         else:
-            df_scba_main = pd.DataFrame(df_scba_main_raw[1:], columns=df_scba_main_raw[0])
-            
-            if not df_scba_visual_raw or len(df_scba_visual_raw) < 2:
-                df_scba_visual = pd.DataFrame() # Cria um DF vazio se não houver inspeções visuais
-            else:
-                df_scba_visual = pd.DataFrame(df_scba_visual_raw[1:], columns=df_scba_visual_raw[0])
-
             dashboard_df = get_scba_status_df(df_scba_main, df_scba_visual)
             
             if dashboard_df.empty:
@@ -617,7 +612,6 @@ def show_dashboard_page():
                                 st.info("Nenhum detalhe de inspeção periódica encontrado.")
                         except (json.JSONDecodeError, TypeError):
                             st.info("Nenhum detalhe de inspeção periódica encontrado.")
-
 
 # --- Boilerplate de Autenticação ---
 if not show_login_page(): st.stop()

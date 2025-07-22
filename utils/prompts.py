@@ -215,7 +215,7 @@ def get_air_quality_prompt():
 
     1.  `data_ensaio`: A data em que o ensaio foi realizado, encontrada como "DATA DO ENSAIO". Se não encontrar, use a data da assinatura no final do documento. Formato: "AAAA-MM-DD".
     2.  `resultado_geral`: A conclusão geral do teste, encontrada na seção "RESULTADO". A palavra-chave é "aprovado". Retorne "Aprovado" se encontrar essa palavra, caso contrário, retorne "Reprovado".
-    3.  `observacoes`: Qualquer texto na seção "Obs.:". Se não houver, retorne uma string vazia.
+    3.  `observacoes`: Metodologia se houver caso contrario será N/A.
 
     **Formato de Saída OBRIGATÓRIO:**
     Retorne a resposta APENAS como um objeto JSON com uma chave "laudo".
@@ -225,7 +225,7 @@ def get_air_quality_prompt():
       "laudo": {
         "data_ensaio": "2024-09-20",
         "resultado_geral": "Aprovado",
-        "observacoes": "A cada troca de filtro ou óleo do compressor é realizada uma nova análise de qualidade do ar."
+        "observacoes": "Como foi realizado"
       }
     }
     """

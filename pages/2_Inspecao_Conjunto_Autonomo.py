@@ -89,6 +89,8 @@ def show_scba_inspection_page():
         st.session_state.setdefault('airq_uploaded_pdf', None)
 
         st.subheader("1. Faça o Upload do Laudo PDF")
+        st.info("A IA analisará o laudo, extrairá os dados e criará um registro para cada cilindro mencionado.")
+        
         uploaded_pdf_airq = st.file_uploader("Escolha o laudo de qualidade do ar", type=["pdf"], key="airq_pdf_uploader")
         if uploaded_pdf_airq:
             st.session_state.airq_uploaded_pdf = uploaded_pdf_airq
@@ -118,7 +120,7 @@ def show_scba_inspection_page():
                     if pdf_link:
                         for cilindro_sn in cilindros:
                             data_row = [None] * 18
-                            data_row[2] = cilindro_sn
+                            data_row[2] = cilindro_sn # Coluna C: numero_serie_equipamento
                             data_row.extend([
                                 data.get('data_ensaio'),
                                 data.get('resultado_geral'),

@@ -3,7 +3,7 @@ import json
 from datetime import date
 from dateutil.relativedelta import relativedelta
 from gdrive.gdrive_upload import GoogleDriveUploader
-from gdrive.config import SCBA_SHEET_NAME, SCBA_VISUAL_INSPECTIONS_SHEET_NAME
+from gdrive.config import SCBA_SHEET_NAME, SCBA_VISUAL_INSPECTIONS_SHEET_NAME, LOG_SCBA_SHEET_NAME
 
 def save_scba_inspection(record, pdf_link, user_name):
     """
@@ -66,3 +66,22 @@ def save_scba_visual_inspection(equipment_id, overall_status, results_dict, insp
     except Exception as e:
         st.error(f"Erro ao salvar inspeção visual do SCBA {equipment_id}: {e}")
         return False
+        
+def save_scba_action_log(equipment_id, problem, action_taken, responsible):
+    """
+    Salva um registro de ação corretiva para um SCBA no log.
+    """
+    try:
+        uploader = GoogleDriveUploader()
+        data_row = [
+            date.today().isoformat(),
+            equipment_id,
+            problem,
+            action_taken,
+            responsible
+        ]
+        uploader.append_data_to_sheet(LOG_SCBA_SHEET_NAME, data_row)
+        return True
+    except Exception as e:
+        st.error(f"Erro ao salvar log de ação para o SCBA {equipment_id}: {e}")
+        return False        

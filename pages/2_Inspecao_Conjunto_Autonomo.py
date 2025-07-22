@@ -14,6 +14,7 @@ from auth.login_page import show_login_page, show_user_header, show_logout_butto
 from auth.auth_utils import is_admin_user, get_user_display_name
 from operations.demo_page import show_demo_page
 from config.page_config import set_page_config
+from operations.history import load_sheet_data
 from gdrive.config import SCBA_SHEET_NAME, SCBA_VISUAL_INSPECTIONS_SHEET_NAME
 
 

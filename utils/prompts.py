@@ -204,3 +204,28 @@ def get_scba_inspection_prompt():
       ]
     }
     """
+
+def get_air_quality_prompt():
+    """
+    Retorna um prompt para extrair a data e o resultado de um Laudo de Qualidade do Ar.
+    """
+    return """
+    Você é um especialista em analisar "Laudos de Qualidade do Ar" para compressores.
+    Sua tarefa é analisar o documento PDF e extrair APENAS as seguintes informações-chave:
+
+    1.  `data_ensaio`: A data em que o ensaio foi realizado, encontrada como "DATA DO ENSAIO". Se não encontrar, use a data da assinatura no final do documento. Formato: "AAAA-MM-DD".
+    2.  `resultado_geral`: A conclusão geral do teste, encontrada na seção "RESULTADO". A palavra-chave é "aprovado". Retorne "Aprovado" se encontrar essa palavra, caso contrário, retorne "Reprovado".
+    3.  `observacoes`: Qualquer texto na seção "Obs.:". Se não houver, retorne uma string vazia.
+
+    **Formato de Saída OBRIGATÓRIO:**
+    Retorne a resposta APENAS como um objeto JSON com uma chave "laudo".
+
+    Exemplo de formato de saída:
+    {
+      "laudo": {
+        "data_ensaio": "2024-09-20",
+        "resultado_geral": "Aprovado",
+        "observacoes": "A cada troca de filtro ou óleo do compressor é realizada uma nova análise de qualidade do ar."
+      }
+    }
+    """

@@ -87,36 +87,36 @@ def get_hose_status_df(df_hoses):
 
 
 
-def get_shelter_status_df(df_shelters_registered_raw, df_inspections_raw):
-    if not df_shelters_registered_raw or len(df_shelters_registered_raw) < 2:
+def get_shelter_status_df(df_shelters_registered, df_inspections):
+    if df_shelters_registered.empty:
         return pd.DataFrame()
-    df_shelters_registered = pd.DataFrame(df_shelters_registered_raw[1:], columns=df_shelters_registered_raw[0])
 
     latest_inspections_list = []
-    if df_inspections_raw and len(df_inspections_raw) > 1:
-        df_inspections = pd.DataFrame(df_inspections_raw[1:], columns=df_inspections_raw[0])
+    if not df_inspections.empty:
         df_inspections['data_inspecao'] = pd.to_datetime(df_inspections['data_inspecao'], errors='coerce').dt.date
 
         for shelter_id in df_shelters_registered['id_abrigo'].unique():
             shelter_inspections = df_inspections[df_inspections['id_abrigo'] == shelter_id].copy()
-            if not shelter_inspections.empty: 
+            if not shelter_inspections.empty:
                 shelter_inspections = shelter_inspections.sort_values(by='data_inspecao', ascending=False)
                 
+        
                 latest_date = shelter_inspections['data_inspecao'].iloc[0]
                 inspections_on_latest_date = shelter_inspections[shelter_inspections['data_inspecao'] == latest_date]
                 
                 approved_on_latest = inspections_on_latest_date[inspections_on_latest_date['status_geral'] != 'Reprovado com Pendências']
                 
-                if not approved_on_latest.empty: 
+                if not approved_on_latest.empty:
                     latest_inspections_list.append(approved_on_latest.iloc[0])
                 else:
                     latest_inspections_list.append(inspections_on_latest_date.iloc[0])
 
     latest_inspections = pd.DataFrame(latest_inspections_list)
 
-    if not latest_inspections.empty: 
+    if not latest_inspections.empty:
         dashboard_df = pd.merge(df_shelters_registered[['id_abrigo', 'cliente']], latest_inspections, on='id_abrigo', how='left')
     else:
+
         dashboard_df = df_shelters_registered.copy()
         for col in ['data_inspecao', 'data_proxima_inspecao', 'status_geral', 'inspetor', 'resultados_json']:
             dashboard_df[col] = None
@@ -477,28 +477,13 @@ def show_dashboard_page():
     with tab_shelters:
         st.header("Dashboard de Status dos Abrigos de Emergência")
         
-        df_shelters_registered_raw = load_sheet_data(SHELTER_SHEET_NAME)
-        df_inspections_history_raw = load_sheet_data(INSPECTIONS_SHELTER_SHEET_NAME)
-        df_action_log_raw = load_sheet_data(LOG_SHELTER_SHEET_NAME)
+        df_shelters_registered = load_sheet_data(SHELTER_SHEET_NAME)
+        df_inspections_history = load_sheet_data(INSPECTIONS_SHELTER_SHEET_NAME)
+        df_action_log = load_sheet_data(LOG_SHELTER_SHEET_NAME)
 
-        if not df_shelters_registered_raw or len(df_shelters_registered_raw) < 2:
+        if df_shelters_registered.empty:
             st.warning("Nenhum abrigo de emergência cadastrado.")
         else:
-            # Converte para DataFrame para uso posterior
-            df_shelters_registered = pd.DataFrame(df_shelters_registered_raw[1:], columns=df_shelters_registered_raw[0])
-            
-            # Garante que os outros dataframes sejam criados corretamente, mesmo que vazios
-            if not df_inspections_history_raw or len(df_inspections_history_raw) < 2:
-                df_inspections_history = pd.DataFrame()
-            else:
-                df_inspections_history = pd.DataFrame(df_inspections_history_raw[1:], columns=df_inspections_history_raw[0])
-
-            if not df_action_log_raw or len(df_action_log_raw) < 2:
-                df_action_log = pd.DataFrame()
-            else:
-                df_action_log = pd.DataFrame(df_action_log_raw[1:], columns=df_action_log_raw[0])
-
-
             st.info("Aqui está o status de todos os abrigos. Gere um relatório de status completo para impressão ou registre ações corretivas.")
             if st.button("📄 Gerar Relatório de Status em PDF", type="primary"):
                 report_html = generate_shelters_html(df_shelters_registered, df_inspections_history, df_action_log)
@@ -518,7 +503,7 @@ def show_dashboard_page():
                 st.success("Relatório de status enviado para impressão!")
             st.markdown("---")
 
-            dashboard_df_shelters = get_shelter_status_df(df_shelters_registered, df_inspections_history, df_action_log)
+            dashboard_df_shelters = get_shelter_status_df(df_shelters_registered, df_inspections_history)
             
             status_counts = dashboard_df_shelters['status_dashboard'].value_counts()
             ok_count = status_counts.get("🟢 OK", 0) + status_counts.get("🟢 OK (Ação Realizada)", 0)

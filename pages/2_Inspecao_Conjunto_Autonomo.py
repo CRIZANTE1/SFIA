@@ -23,7 +23,7 @@ pdf_qa = PDFQA()
 def show_scba_inspection_page():
     st.title("💨 Inspeção de Conjuntos Autônomos (SCBA)")
 
-    tab_test_scba, tab_quality_air = st.tabs([
+    tab_test_scba, tab_quality_air, tab3 = st.tabs([
         "Teste de Equipamentos (Posi3)",
         "Laudo de Qualidade do Ar",
         "Inspeção Visual Periódica"

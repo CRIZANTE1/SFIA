@@ -14,7 +14,7 @@ from auth.login_page import show_login_page, show_user_header, show_logout_butto
 from auth.auth_utils import is_admin_user, get_user_display_name
 from operations.demo_page import show_demo_page
 from config.page_config import set_page_config 
-from gdrive.config import HOSE_SHEET_NAME, SHELTER_SHEET_NAME, INSPECTIONS_SHELTER_SHEET_NAME, LOG_SHELTER_SHEET_NAME, SCBA_SHEET_NAME, SCBA_VISUAL_INSPECTIONS_SHEET_NAME, LOG_SCBA_SHEET_NAME
+from gdrive.config import HOSE_SHEET_NAME, SHELTER_SHEET_NAME, INSPECTIONS_SHELTER_SHEET_NAME, LOG_SHELTER_SHEET_NAME, SCBA_SHEET_NAME, SCBA_VISUAL_INSPECTIONS_SHEET_NAME
 from reports.reports_pdf import generate_shelters_html
 from operations.shelter_operations import save_shelter_action_log, save_shelter_inspection
 from operations.corrective_actions import save_corrective_action
@@ -25,35 +25,43 @@ from operations.photo_operations import upload_evidence_photo
 
 set_page_config()
 
-def get_scba_status_df(df_scba_history):
-    if df_scba_history.empty:
-        return pd.DataFrame(), "N/A"
+def get_scba_status_df(df_scba_main_raw, df_scba_visual_raw):
+    if not df_scba_main_raw or len(df_scba_main_raw) < 2:
+        return pd.DataFrame()
 
-    equipment_tests = df_scba_history.dropna(subset=['data_teste']).copy()
-    air_quality_reports = df_scba_history.dropna(subset=['data_qualidade_ar']).copy()
-
-    air_status_geral = "⚠️ Pendente"
-    if not air_quality_reports.empty:
-        air_quality_reports['data_qualidade_ar'] = pd.to_datetime(air_quality_reports['data_qualidade_ar'], errors='coerce')
-        last_air_report = air_quality_reports.sort_values('data_qualidade_ar', ascending=False).iloc[0]
-        qa_status = last_air_report['status_qualidade_ar']
-        qa_date = last_air_report['data_qualidade_ar'].strftime('%d/%m/%Y')
-        air_status_geral = f"{'🟢' if qa_status == 'Aprovado' else '🔴'} {qa_status} (Laudo de {qa_date})"
-
+    header_main = df_scba_main_raw[0]
+    df_scba_main = pd.DataFrame(df_scba_main_raw[1:], columns=header_main)
+    
+    equipment_tests = df_scba_main.dropna(subset=['numero_serie_equipamento', 'data_teste']).copy()
     if equipment_tests.empty:
-        return pd.DataFrame(), air_status_geral
+        return pd.DataFrame()
         
-    equipment_tests['data_validade'] = pd.to_datetime(equipment_tests['data_validade'], errors='coerce')
     latest_tests = equipment_tests.sort_values('data_teste', ascending=False).drop_duplicates(subset='numero_serie_equipamento', keep='first')
     
-    today = pd.Timestamp(date.today())
-    latest_tests['status_equipamento'] = np.where(latest_tests['data_validade'] < today, '🔴 VENCIDO', '🟢 OK')
-    
-    latest_tests['data_validade'] = latest_tests['data_validade'].dt.strftime('%d/%m/%Y').fillna('N/A')
+    if df_scba_visual_raw and len(df_scba_visual_raw) > 1:
+        header_visual = df_scba_visual_raw[0]
+        df_scba_visual = pd.DataFrame(df_scba_visual_raw[1:], columns=header_visual)
+        df_scba_visual['data_inspecao'] = pd.to_datetime(df_scba_visual['data_inspecao'], errors='coerce')
+        latest_visual = df_scba_visual.sort_values('data_inspecao', ascending=False).drop_duplicates(subset='numero_serie_equipamento', keep='first')
+        dashboard_df = pd.merge(latest_tests, latest_visual, on='numero_serie_equipamento', how='left', suffixes=('_teste', '_visual'))
+    else:
+        dashboard_df = latest_tests
+        for col in ['data_inspecao', 'data_proxima_inspecao', 'status_geral', 'resultados_json']:
+            dashboard_df[col] = None
 
-    display_df = latest_tests[['numero_serie_equipamento', 'status_equipamento', 'data_validade', 'link_relatorio_pdf']]
+    today = pd.Timestamp(date.today())
+    dashboard_df['data_validade'] = pd.to_datetime(dashboard_df['data_validade'], errors='coerce')
+    dashboard_df['data_proxima_inspecao'] = pd.to_datetime(dashboard_df['data_proxima_inspecao'], errors='coerce')
     
-    return display_df, air_status_geral
+    conditions = [
+        (dashboard_df['data_validade'] < today),
+        (dashboard_df['data_proxima_inspecao'] < today),
+        (dashboard_df['status_geral'] == 'Reprovado com Pendências')
+    ]
+    choices = ['🔴 VENCIDO (Teste Posi3)', '🔴 VENCIDO (Insp. Periódica)', '🟠 COM PENDÊNCIAS']
+    dashboard_df['status_consolidado'] = np.select(conditions, choices, default='🟢 OK')
+    
+    return dashboard_df
     
 def get_hose_status_df(df_hoses):
     if df_hoses.empty:

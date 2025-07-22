@@ -10,7 +10,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from operations.scba_operations import save_scba_inspection
 from gdrive.gdrive_upload import GoogleDriveUploader
 from AI.api_Operation import PDFQA
-from utils.prompts import get_scba_inspection_prompt
+from utils.prompts import get_scba_inspection_prompt, get_air_quality_prompt 
 from auth.login_page import show_login_page, show_user_header, show_logout_button
 from auth.auth_utils import is_admin_user, get_user_display_name
 from operations.demo_page import show_demo_page

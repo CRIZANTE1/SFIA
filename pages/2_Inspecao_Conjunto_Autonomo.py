@@ -89,17 +89,14 @@ def show_scba_inspection_page():
         st.session_state.setdefault('airq_uploaded_pdf', None)
 
         st.subheader("1. Faça o Upload do Laudo PDF")
-        st.info("A IA analisará o laudo, extrairá os dados e criará um registro para cada cilindro mencionado.")
-        
-        uploaded_pdf = st.file_uploader("Escolha o laudo de qualidade do ar", type=["pdf"], key="airq_pdf_uploader")
-        if uploaded_pdf:
-            st.session_state.airq_uploaded_pdf = uploaded_pdf
+        uploaded_pdf_airq = st.file_uploader("Escolha o laudo de qualidade do ar", type=["pdf"], key="airq_pdf_uploader")
+        if uploaded_pdf_airq:
+            st.session_state.airq_uploaded_pdf = uploaded_pdf_airq
         
         if st.session_state.airq_uploaded_pdf and st.button("🔎 Analisar Laudo de Ar com IA"):
             with st.spinner("Analisando o laudo com IA..."):
                 prompt = get_air_quality_prompt()
                 extracted_data = pdf_qa.extract_structured_data(st.session_state.airq_uploaded_pdf, prompt)
-                
                 if extracted_data and "laudo" in extracted_data:
                     st.session_state.airq_processed_data = extracted_data["laudo"]
                     st.session_state.airq_step = 'confirm'
@@ -111,20 +108,17 @@ def show_scba_inspection_page():
             data = st.session_state.airq_processed_data
             st.subheader("2. Confira os Dados e Salve")
             st.metric("Resultado do Laudo", data.get('resultado_geral', 'N/A'))
-            st.info(f"O laudo será aplicado aos seguintes cilindros: {', '.join(data.get('cilindros', []))}")
+            cilindros = data.get('cilindros', [])
+            st.info(f"O laudo será aplicado aos seguintes cilindros: {', '.join(cilindros)}")
             
             if st.button("💾 Confirmar e Registrar Laudo", type="primary", use_container_width=True):
                 with st.spinner("Processando e salvando..."):
                     pdf_name = f"Laudo_Ar_{data.get('data_ensaio')}.pdf"
                     pdf_link = uploader.upload_file(st.session_state.airq_uploaded_pdf, novo_nome=pdf_name)
-                    
                     if pdf_link:
-                        cilindros = data.get('cilindros', [])
                         for cilindro_sn in cilindros:
-                           
                             data_row = [None] * 18
-                            data_row[2] = cilindro_sn # Coluna C: numero_serie_equipamento
-                            
+                            data_row[2] = cilindro_sn
                             data_row.extend([
                                 data.get('data_ensaio'),
                                 data.get('resultado_geral'),
@@ -132,7 +126,6 @@ def show_scba_inspection_page():
                                 pdf_link
                             ])
                             uploader.append_data_to_sheet(SCBA_SHEET_NAME, data_row)
-                        
                         st.success(f"Laudo de qualidade do ar registrado com sucesso para {len(cilindros)} cilindros!")
                         st.session_state.airq_step = 'start'
                         st.cache_data.clear()

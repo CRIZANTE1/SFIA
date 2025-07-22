@@ -115,25 +115,36 @@ def show_scba_inspection_page():
             
             if st.button("💾 Confirmar e Registrar Laudo", type="primary", use_container_width=True):
                 with st.spinner("Processando e salvando..."):
-                    pdf_name = f"Laudo_Ar_{data.get('data_ensaio')}.pdf"
+                    uploader = GoogleDriveUploader()
+                    pdf_name = f"Laudo_Ar_{data.get('data_ensaio')}_{st.session_state.airq_uploaded_pdf.name}"
                     pdf_link = uploader.upload_file(st.session_state.airq_uploaded_pdf, novo_nome=pdf_name)
+                    
                     if pdf_link:
-                        for cilindro_sn in cilindros:
-                            data_row = [None] * 18
-                            data_row[2] = cilindro_sn # Coluna C: numero_serie_equipamento
-                            data_row.extend([
-                                data.get('data_ensaio'),
-                                data.get('resultado_geral'),
-                                data.get('observacoes'),
-                                pdf_link
-                            ])
-                            uploader.append_data_to_sheet(SCBA_SHEET_NAME, data_row)
-                        st.success(f"Laudo de qualidade do ar registrado com sucesso para {len(cilindros)} cilindros!")
-                        st.session_state.airq_step = 'start'
-                        st.cache_data.clear()
-                        st.rerun()
+                        cilindros = data.get('cilindros', [])
+                        if not cilindros:
+                            st.error("Não é possível salvar, pois nenhum cilindro foi identificado no laudo.")
+                        else:
+                            for cilindro_sn in cilindros:
+                                data_row = [None] * 18
+                                data_row[2] = cilindro_sn # Coluna C: numero_serie_equipamento
+                                
+                                data_row.extend([
+                                    data.get('data_ensaio'),
+                                    data.get('resultado_geral'),
+                                    data.get('observacoes'),
+                                    pdf_link 
+                                ])
+                                uploader.append_data_to_sheet(SCBA_SHEET_NAME, data_row)
+                            
+                            st.success(f"Laudo de qualidade do ar registrado com sucesso para {len(cilindros)} cilindros!")
+                            
+                            st.session_state.airq_step = 'start'
+                            st.session_state.airq_processed_data = None
+                            st.session_state.airq_uploaded_pdf = None
+                            st.cache_data.clear()
+                            st.rerun()
                     else:
-                        st.error("Falha no upload do PDF.")
+                        st.error("Falha no upload do PDF para o Google Drive. Nenhum dado foi salvo.")
 
 
 if not show_login_page(): 

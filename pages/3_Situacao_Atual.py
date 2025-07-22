@@ -97,8 +97,7 @@ def get_shelter_status_df(df_shelters_registered, df_inspections):
             if not shelter_inspections.empty:
                 shelter_inspections = shelter_inspections.sort_values(by='data_inspecao', ascending=False)
                 
-                # LÓGICA DE DESEMPATE: Se houver várias inspeções no dia mais recente,
-                # priorize a que NÃO é "Reprovado com Pendências".
+        
                 latest_date = shelter_inspections['data_inspecao'].iloc[0]
                 inspections_on_latest_date = shelter_inspections[shelter_inspections['data_inspecao'] == latest_date]
                 
@@ -163,18 +162,15 @@ def get_consolidated_status_df(df_full, df_locais):
         last_maint2_date = ext_df[ext_df['tipo_servico'] == 'Manutenção Nível 2']['data_servico'].max()
         last_maint3_date = ext_df[ext_df['tipo_servico'] == 'Manutenção Nível 3']['data_servico'].max()
         
-        # 4. Calcula os PRÓXIMOS vencimentos com base nas datas mais recentes de cada tipo
         next_insp = (last_insp_date + relativedelta(months=1)) if pd.notna(last_insp_date) else pd.NaT
         next_maint2 = (last_maint2_date + relativedelta(months=12)) if pd.notna(last_maint2_date) else pd.NaT
         next_maint3 = (last_maint3_date + relativedelta(years=5)) if pd.notna(last_maint3_date) else pd.NaT
         
-        # 5. Determina o vencimento geral (o mais próximo de hoje)
         vencimentos = [d for d in [next_insp, next_maint2, next_maint3] if pd.notna(d)]
         if not vencimentos: 
             continue
         proximo_vencimento_real = min(vencimentos)
         
-        # 6. Define o STATUS ATUAL com base em todas as condições
         today_ts = pd.Timestamp(date.today())
         status_atual = "OK"
         
@@ -203,7 +199,6 @@ def get_consolidated_status_df(df_full, df_locais):
     if not consolidated_data:
         return pd.DataFrame()
 
-    # Junta com as informações de localização no final
     dashboard_df = pd.DataFrame(consolidated_data)
     if not df_locais.empty:
         df_locais = df_locais.rename(columns={'id': 'numero_identificacao'})
@@ -214,6 +209,23 @@ def get_consolidated_status_df(df_full, df_locais):
         dashboard_df['status_instalacao'] = "⚠️ Local não definido"
         
     return dashboard_df
+
+@st.dialog("Registrar Ação Corretiva para SCBA")
+def action_dialog_scba(equipment_id, problem):
+    st.write(f"**Equipamento S/N:** `{equipment_id}`")
+    st.write(f"**Problema Identificado:** `{problem}`")
+    action_taken = st.text_area("Descreva a ação corretiva realizada:")
+    responsible = st.text_input("Responsável pela ação:", value=get_user_display_name())
+    
+    if st.button("Salvar Ação e Regularizar", type="primary"):
+        if not action_taken: st.error("Por favor, descreva a ação."); return
+        with st.spinner("Registrando..."):
+            save_scba_action_log(equipment_id, problem, action_taken, responsible)
+            results = {"Info": {"Status": "Regularizado via Ação Corretiva", "Ação": action_taken}}
+            save_scba_visual_inspection(equipment_id, "Aprovado", results, get_user_display_name())
+            st.success("Ação registrada e status regularizado!")
+            st.cache_data.clear()
+            st.rerun()
 
 
 @st.dialog("Registrar Plano de Ação para Abrigo")
@@ -543,42 +555,47 @@ def show_dashboard_page():
                         st.error("Não foi possível carregar os detalhes desta inspeção (formato inválido).")
 
     with tab_scba:
-            st.header("Dashboard de Status dos Conjuntos Autônomos")
-            df_scba_history = load_sheet_data(SCBA_SHEET_NAME)
-    
-            if df_scba_history.empty:
-                st.warning("Nenhum registro de conjunto autônomo encontrado.")
-            else:
-                dashboard_df_scba, air_status = get_scba_status_df(df_scba_history)
+        st.header("Dashboard de Status dos Conjuntos Autônomos")
+        df_scba_main = load_sheet_data(SCBA_SHEET_NAME)
+        df_scba_visual = load_sheet_data(SCBA_VISUAL_INSPECTIONS_SHEET_NAME)
+
+        if df_scba_main.empty:
+            st.warning("Nenhum teste de equipamento (Posi3) registrado.")
+        else:
+            dashboard_df = get_scba_status_df(df_scba_main, df_scba_visual)
+            
+            status_counts = dashboard_df['status_consolidado'].value_counts()
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("✅ Total", len(dashboard_df))
+            col2.metric("🟢 OK", status_counts.get("🟢 OK", 0))
+            col3.metric("🟠 Pendências", status_counts.get("🟠 COM PENDÊNCIAS", 0))
+            col4.metric("🔴 Vencidos", status_counts.get("🔴 VENCIDO (Teste Posi3)", 0) + status_counts.get("🔴 VENCIDO (Insp. Periódica)", 0))
+            st.markdown("---")
+            
+            for _, row in dashboard_df.iterrows():
+                status = row['status_consolidado']
+                expander_title = f"{status} | **S/N:** {row['numero_serie_equipamento']} | **Val. Teste:** {pd.to_datetime(row['data_validade']).strftime('%d/%m/%Y')} | **Próx. Insp.:** {pd.to_datetime(row['data_proxima_inspecao']).strftime('%d/%m/%Y') if pd.notna(row['data_proxima_inspecao']) else 'N/A'}"
                 
-                status_counts = dashboard_df_scba['status_equipamento'].value_counts()
-                col1, col2, col3 = st.columns(3)
-                
-                with col1:
-                    st.metric("✅ Total de Equipamentos", len(dashboard_df_scba))
-                with col2:
-                    st.metric("🟢 Equipamentos OK", status_counts.get("🟢 OK", 0))
-                with col3:
-                    st.markdown("**Qualidade do Ar**")
-                    st.write(air_status)
-                    st.caption("Status geral baseado no último laudo.")
-                
-                st.markdown("---")
-                st.subheader("Lista de Equipamentos")
-                st.dataframe(
-                    dashboard_df_scba,
-                    column_config={
-                        "numero_serie_equipamento": "Nº de Série",
-                        "status_equipamento": "Status do Equipamento",
-                        "data_validade": "Validade do Teste",
-                        "link_relatorio_pdf": st.column_config.LinkColumn(
-                            "Relatório (PDF)",
-                            display_text="🔗 Ver PDF"
-                        )
-                    },
-                    use_container_width=True,
-                    hide_index=True
-                )
+                with st.expander(expander_title):
+                    st.write(f"**Última Inspeção Periódica:** {pd.to_datetime(row['data_inspecao']).strftime('%d/%m/%Y') if pd.notna(row['data_inspecao']) else 'N/A'} - **Status:** {row.get('status_geral', 'N/A')}")
+                    
+                    if status != "🟢 OK":
+                        if st.button("✍️ Registrar Plano de Ação", key=f"action_scba_{row['numero_serie_equipamento']}", use_container_width=True):
+                            action_dialog_scba(row['numero_serie_equipamento'], status)
+                    
+                    st.markdown("**Detalhes da Última Inspeção Periódica:**")
+                    try:
+                        results = json.loads(row['resultados_json'])
+                        for category, items in results.items():
+                            st.write(f"**{category}:**")
+                            for item, item_status in items.items():
+                                if isinstance(item_status, str) and item_status not in ["C", "Aprovado", "Sim"]:
+                                    st.markdown(f"- {item}: <span style='color: red; font-weight: bold;'>{item_status}</span>", unsafe_allow_html=True)
+                                else:
+                                    st.markdown(f"- {item}: {item_status}")
+                    except (json.JSONDecodeError, TypeError, AttributeError):
+                        st.info("Nenhum detalhe de inspeção periódica encontrado.")
+
 
 # --- Boilerplate de Autenticação ---
 if not show_login_page(): st.stop()

@@ -37,6 +37,7 @@ def save_scba_inspection(record, pdf_link, user_name):
         st.error(f"Erro ao salvar inspeção do SCBA {record.get('numero_serie_equipamento')}: {e}")
         return False
 
+
 def save_scba_visual_inspection(equipment_id, overall_status, results_dict, inspector_name):
     """
     Salva o resultado de uma inspeção visual periódica de SCBA na planilha.
@@ -44,9 +45,8 @@ def save_scba_visual_inspection(equipment_id, overall_status, results_dict, insp
     try:
         uploader = GoogleDriveUploader()
         today = date.today()
-        # Assumindo validade mensal para inspeções visuais
-        next_inspection_date = (today + relativedelta(months=1)).isoformat()
         
+        next_inspection_date = (today + relativedelta(months=3)).isoformat()
         results_json = json.dumps(results_dict, ensure_ascii=False)
 
         data_row = [
@@ -58,7 +58,7 @@ def save_scba_visual_inspection(equipment_id, overall_status, results_dict, insp
             next_inspection_date
         ]
         
-        uploader.append_data_to_sheet(SCBA_VISUAL_INSPECTIONS_SHEET_NAME, data_row)
+        uploader.append_data_to_sheet(SCBA_VISISUAL_INSPECTIONS_SHEET_NAME, data_row)
         return True
     except Exception as e:
         st.error(f"Erro ao salvar inspeção visual do SCBA {equipment_id}: {e}")

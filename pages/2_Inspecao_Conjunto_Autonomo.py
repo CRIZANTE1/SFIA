@@ -84,16 +84,15 @@ def show_scba_inspection_page():
 
 
     with tab_quality_air:
-        st.header("Registrar Laudo de Qualidade do Ar com IA")
+        st.header("Registrar Laudo de Qualidade do Ar e Associar a Cilindros")
         
         st.session_state.setdefault('airq_step', 'start')
         st.session_state.setdefault('airq_processed_data', None)
         st.session_state.setdefault('airq_uploaded_pdf', None)
+        st.session_state.setdefault('airq_pdf_link', None)
 
         st.subheader("1. Faça o Upload do Laudo PDF")
-        st.info("A IA analisará o laudo, extrairá a data e o resultado (Aprovado/Reprovado) e preparará para salvamento.")
-        
-        uploaded_pdf = st.file_uploader("Escolha o laudo de qualidade do ar (PDF)", type=["pdf"], key="airq_pdf_uploader")
+        uploaded_pdf = st.file_uploader("Escolha o laudo de qualidade do ar", type=["pdf"], key="airq_pdf_uploader")
         if uploaded_pdf:
             st.session_state.airq_uploaded_pdf = uploaded_pdf
         
@@ -104,44 +103,86 @@ def show_scba_inspection_page():
                 
                 if extracted_data and "laudo" in extracted_data:
                     st.session_state.airq_processed_data = extracted_data["laudo"]
-                    st.session_state.airq_step = 'confirm'
+                    st.session_state.airq_step = 'confirm_and_upload'
                     st.rerun()
                 else:
-                    st.error("A IA não conseguiu extrair os dados do laudo. Verifique o documento.")
-                    st.json(extracted_data)
-        
-        if st.session_state.airq_step == 'confirm' and st.session_state.airq_processed_data:
-            st.subheader("2. Confira os Dados Extraídos e Salve")
-            data = st.session_state.airq_processed_data
-            st.metric("Data do Ensaio Extraída", data.get('data_ensaio', 'N/A'))
-            st.metric("Resultado Extraído", data.get('resultado_geral', 'N/A'))
-            st.text_area("Observações Extraídas", value=data.get('observacoes', ''), disabled=True)
-            
-            if st.button("💾 Confirmar e Registrar Laudo", type="primary", use_container_width=True):
-                with st.spinner("Processando e salvando o laudo..."):
-                    uploader = GoogleDriveUploader()
-                    pdf_name = f"Laudo_Qualidade_Ar_{data.get('data_ensaio')}.pdf"
-                    pdf_link = uploader.upload_file(st.session_state.airq_uploaded_pdf, novo_nome=pdf_name)
-                    
-                    if pdf_link:
-                        data_row = [None] * 18 + [
-                            data.get('data_ensaio'),
-                            data.get('resultado_geral'),
-                            data.get('observacoes'),
-                            pdf_link
-                        ]
-                        uploader.append_data_to_sheet(SCBA_SHEET_NAME, data_row)
-                        st.success("Laudo de qualidade do ar registrado com sucesso no histórico!")
-                        
-                        st.session_state.airq_step = 'start'
-                        st.session_state.airq_processed_data = None
-                        st.session_state.airq_uploaded_pdf = None
-                        st.cache_data.clear()
-                        st.rerun()
-                    else:
-                        st.error("Falha ao fazer o upload do laudo para o Google Drive.")
+                    st.error("A IA não conseguiu extrair os dados do laudo.")
 
-# --- Boilerplate de Autenticação ---
+        if st.session_state.airq_step == 'confirm_and_upload':
+            with st.spinner("Salvando PDF no Google Drive..."):
+                data = st.session_state.airq_processed_data
+                pdf_name = f"Laudo_Qualidade_Ar_{data.get('data_ensaio')}.pdf"
+                pdf_link = uploader.upload_file(st.session_state.airq_uploaded_pdf, novo_nome=pdf_name)
+                
+                if pdf_link:
+                    st.session_state.airq_pdf_link = pdf_link
+                    st.session_state.airq_step = 'associate'
+                    st.rerun()
+                else:
+                    st.error("Falha ao fazer o upload do laudo para o Google Drive.")
+                    st.session_state.airq_step = 'start'
+
+        if st.session_state.airq_step == 'associate':
+            data = st.session_state.airq_processed_data
+            st.subheader("2. Confira os Dados Extraídos")
+            st.metric("Data do Ensaio", data.get('data_ensaio', 'N/A'))
+            st.metric("Resultado", data.get('resultado_geral', 'N/A'))
+            
+            st.subheader("3. Associe o Laudo aos Cilindros")
+            st.info("Selecione todos os conjuntos autônomos que são abastecidos por este compressor/fonte de ar.")
+            
+            try:
+                df_scba = load_sheet_data(SCBA_SHEET_NAME)
+                df_equipment_only = df_scba.dropna(subset=['numero_serie_equipamento'])
+                
+                options = df_equipment_only['numero_serie_equipamento'].tolist()
+                
+                selected_cylinders = st.multiselect(
+                    "Selecione os Números de Série dos Equipamentos:",
+                    options=options,
+                    default=options 
+                )
+
+                if st.button("✅ Confirmar Associação", type="primary", use_container_width=True):
+                    if not selected_cylinders:
+                        st.warning("Nenhum cilindro selecionado.")
+                    else:
+                        with st.spinner("Atualizando registros na planilha..."):
+                            update_values = [
+                                data.get('data_ensaio'),
+                                data.get('resultado_geral'),
+                                data.get('observacoes'),
+                                st.session_state.airq_pdf_link
+                            ]
+                            
+                            header = df_scba[0]
+                            col_index = header.index('numero_serie_equipamento') 
+                            
+                            rows_to_update = []
+                            for i, row in enumerate(df_scba[1:], start=2): 
+                                if row[col_index] in selected_cylinders:
+                                    rows_to_update.append(i)
+                            
+                            update_requests = []
+                            for row_num in rows_to_update:
+                                range_name = f"S{row_num}:V{row_num}" 
+                                uploader.update_cells(SCBA_SHEET_NAME, range_name, [update_values])
+                            
+                            st.success(f"{len(rows_to_update)} registros de conjuntos autônomos foram atualizados com o novo laudo de ar!")
+                            
+                            st.session_state.airq_step = 'start'
+                            st.session_state.airq_processed_data = None
+                            st.session_state.airq_uploaded_pdf = None
+                            st.session_state.airq_pdf_link = None
+                            st.cache_data.clear()
+                            st.rerun()
+
+            except Exception as e:
+                st.error(f"Ocorreu um erro ao carregar os dados dos cilindros: {e}")
+                st.exception(e)
+                st.session_state.airq_step = 'start'
+
+
 if not show_login_page(): 
     st.stop()
 show_user_header()

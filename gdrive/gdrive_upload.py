@@ -158,4 +158,25 @@ class GoogleDriveUploader:
             st.error(f"Erro ao ler dados da planilha '{sheet_name}': {str(e)}")
             raise
             
-     
+    def update_cells(self, sheet_name, range_name, values):
+        """
+        Atualiza um range de células em uma aba específica.
+        
+        Args:
+            sheet_name (str): O nome da aba.
+            range_name (str): O range a ser atualizado (ex: "S2:V10").
+            values (list of lists): Os valores para inserir.
+        """
+        try:
+            full_range = f"{sheet_name}!{range_name}"
+            body = {'values': values}
+            result = self.sheets_service.spreadsheets().values().update(
+                spreadsheetId=GDRIVE_SHEETS_ID,
+                range=full_range,
+                valueInputOption='USER_ENTERED',
+                body=body
+            ).execute()
+            return result
+        except Exception as e:
+            st.error(f"Erro ao atualizar células na planilha '{sheet_name}': {str(e)}")
+            raise 

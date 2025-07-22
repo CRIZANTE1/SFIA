@@ -552,7 +552,7 @@ def show_dashboard_page():
                 dashboard_df_scba, air_status = get_scba_status_df(df_scba_history)
                 
                 status_counts = dashboard_df_scba['status_equipamento'].value_counts()
-                ccol1, col2, col3 = st.columns(3)
+                col1, col2, col3 = st.columns(3)
                 
                 with col1:
                     st.metric("✅ Total de Equipamentos", len(dashboard_df_scba))

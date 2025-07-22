@@ -84,45 +84,62 @@ def show_scba_inspection_page():
 
 
     with tab_quality_air:
-            st.header("Registrar Laudo de Qualidade do Ar Respirável")
-            st.info(
-                "Anexe o laudo de qualidade do ar. O sistema salvará o documento e registrará a data, "
-                "o status e as observações para o histórico."
-            )
-    
-            with st.form("air_quality_form", clear_on_submit=True):
-                laudo_pdf = st.file_uploader("Anexe o Laudo de Qualidade do Ar (PDF)", type=["pdf"])
-                data_laudo = st.date_input("Data do Laudo", value=date.today())
-                status_laudo = st.selectbox("Status do Laudo", ["Aprovado", "Reprovado"])
-                observacoes = st.text_area("Observações (se houver)")
+        st.header("Registrar Laudo de Qualidade do Ar com IA")
+        
+        st.session_state.setdefault('airq_step', 'start')
+        st.session_state.setdefault('airq_processed_data', None)
+        st.session_state.setdefault('airq_uploaded_pdf', None)
+
+        st.subheader("1. Faça o Upload do Laudo PDF")
+        st.info("A IA analisará o laudo, extrairá a data e o resultado (Aprovado/Reprovado) e preparará para salvamento.")
+        
+        uploaded_pdf = st.file_uploader("Escolha o laudo de qualidade do ar (PDF)", type=["pdf"], key="airq_pdf_uploader")
+        if uploaded_pdf:
+            st.session_state.airq_uploaded_pdf = uploaded_pdf
+        
+        if st.session_state.airq_uploaded_pdf and st.button("🔎 Analisar Laudo de Ar com IA"):
+            with st.spinner("Analisando o laudo com IA..."):
+                prompt = get_air_quality_prompt()
+                extracted_data = pdf_qa.extract_structured_data(st.session_state.airq_uploaded_pdf, prompt)
                 
-                submitted = st.form_submit_button("💾 Registrar Laudo de Ar", type="primary", use_container_width=True)
-                
-                if submitted:
-                    if not laudo_pdf:
-                        st.error("Por favor, anexe o arquivo PDF do laudo.")
+                if extracted_data and "laudo" in extracted_data:
+                    st.session_state.airq_processed_data = extracted_data["laudo"]
+                    st.session_state.airq_step = 'confirm'
+                    st.rerun()
+                else:
+                    st.error("A IA não conseguiu extrair os dados do laudo. Verifique o documento.")
+                    st.json(extracted_data)
+        
+        if st.session_state.airq_step == 'confirm' and st.session_state.airq_processed_data:
+            st.subheader("2. Confira os Dados Extraídos e Salve")
+            data = st.session_state.airq_processed_data
+            st.metric("Data do Ensaio Extraída", data.get('data_ensaio', 'N/A'))
+            st.metric("Resultado Extraído", data.get('resultado_geral', 'N/A'))
+            st.text_area("Observações Extraídas", value=data.get('observacoes', ''), disabled=True)
+            
+            if st.button("💾 Confirmar e Registrar Laudo", type="primary", use_container_width=True):
+                with st.spinner("Processando e salvando o laudo..."):
+                    uploader = GoogleDriveUploader()
+                    pdf_name = f"Laudo_Qualidade_Ar_{data.get('data_ensaio')}.pdf"
+                    pdf_link = uploader.upload_file(st.session_state.airq_uploaded_pdf, novo_nome=pdf_name)
+                    
+                    if pdf_link:
+                        data_row = [None] * 18 + [
+                            data.get('data_ensaio'),
+                            data.get('resultado_geral'),
+                            data.get('observacoes'),
+                            pdf_link
+                        ]
+                        uploader.append_data_to_sheet(SCBA_SHEET_NAME, data_row)
+                        st.success("Laudo de qualidade do ar registrado com sucesso no histórico!")
+                        
+                        st.session_state.airq_step = 'start'
+                        st.session_state.airq_processed_data = None
+                        st.session_state.airq_uploaded_pdf = None
+                        st.cache_data.clear()
+                        st.rerun()
                     else:
-                        with st.spinner("Processando e salvando o laudo..."):
-                            uploader = GoogleDriveUploader()
-                            
-                     
-                            pdf_name = f"Laudo_Qualidade_Ar_{data_laudo.isoformat()}_{laudo_pdf.name}"
-                            pdf_link = uploader.upload_file(laudo_pdf, novo_nome=pdf_name)
-                            
-                            if pdf_link:
-                               
-                                data_row = [None] * 18 + [
-                                    data_laudo.isoformat(),
-                                    status_laudo,
-                                    observacoes,
-                                    pdf_link
-                                ]
-                                
-                                uploader.append_data_to_sheet(SCBA_SHEET_NAME, data_row)
-                                st.success("Laudo de qualidade do ar registrado com sucesso no histórico!")
-                                st.cache_data.clear()
-                            else:
-                                st.error("Falha ao fazer o upload do laudo para o Google Drive.")
+                        st.error("Falha ao fazer o upload do laudo para o Google Drive.")
 
 # --- Boilerplate de Autenticação ---
 if not show_login_page(): 

@@ -597,21 +597,52 @@ def show_dashboard_page():
                                 action_dialog_scba(row['numero_serie_equipamento'], status)
                         
                         st.markdown("**Detalhes da Última Inspeção Periódica:**")
-                        try:
-                            results_json = row.get('resultados_json')
-                            if results_json and pd.notna(results_json):
-                                results = json.loads(results_json)
-                                for category, items in results.items():
-                                    st.write(f"**{category}:**")
-                                    for item, item_status in items.items():
-                                        if isinstance(item_status, str) and item_status not in ["C", "Aprovado", "Sim"]:
-                                            st.markdown(f"- {item}: <span style='color: red; font-weight: bold;'>{item_status}</span>", unsafe_allow_html=True)
-                                        else:
-                                            st.markdown(f"- {item}: {item_status}")
+                    try:
+                        results_json = row.get('resultados_json')
+                        if results_json and pd.notna(results_json):
+                            results = json.loads(results_json)
+                            
+                            
+                            st.markdown("##### Testes Funcionais")
+                            testes = results.get("Testes Funcionais", {})
+                            if testes:
+                                cols_testes = st.columns(len(testes))
+                                for i, (teste, resultado) in enumerate(testes.items()):
+                                    icon = "✅" if resultado == "Aprovado" else "❌"
+                                    cols_testes[i].metric(teste, f"{icon} {resultado}")
                             else:
-                                st.info("Nenhum detalhe de inspeção periódica encontrado.")
-                        except (json.JSONDecodeError, TypeError):
+                                st.caption("Não realizado.")
+
+                            st.markdown("---")
+                            
+                            st.markdown("##### Checklist Visual de Componentes")
+                            col_cilindro, col_mascara = st.columns(2)
+
+                            with col_cilindro:
+                                st.write("**Cilindro de Ar**")
+                                cilindro_itens = results.get("Cilindro", {})
+                                obs_cilindro = cilindro_itens.pop("Observações", "")
+                                for item, status in cilindro_itens.items():
+                                    icon = "✔️" if status == "C" else ("❌" if status == "N/C" else "➖")
+                                    st.markdown(f"{icon} {item}")
+                                if obs_cilindro:
+                                    st.caption(f"Obs: {obs_cilindro}")
+
+                            with col_mascara:
+                                st.write("**Máscara Facial**")
+                                mascara_itens = results.get("Mascara", {})
+                                obs_mascara = mascara_itens.pop("Observações", "")
+                                for item, status in mascara_itens.items():
+                                    icon = "✔️" if status == "C" else ("❌" if status == "N/C" else "➖")
+                                    st.markdown(f"{icon} {item}")
+                                if obs_mascara:
+                                    st.caption(f"Obs: {obs_mascara}")
+
+                        else:
                             st.info("Nenhum detalhe de inspeção periódica encontrado.")
+                    except (json.JSONDecodeError, TypeError, AttributeError):
+                        st.info("Nenhum detalhe de inspeção periódica encontrado.")
+
 
 # --- Boilerplate de Autenticação ---
 if not show_login_page(): st.stop()

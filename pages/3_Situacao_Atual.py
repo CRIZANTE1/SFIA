@@ -552,10 +552,16 @@ def show_dashboard_page():
                 dashboard_df_scba, air_status = get_scba_status_df(df_scba_history)
                 
                 status_counts = dashboard_df_scba['status_equipamento'].value_counts()
-                col1, col2, col3 = st.columns(3)
-                col1.metric("✅ Total de Equipamentos", len(dashboard_df_scba))
-                col2.metric("🟢 Equipamentos OK", status_counts.get("🟢 OK", 0))
-                col3.metric("🌬️ Qualidade do Ar", air_status, help="Status baseado no último laudo de qualidade do ar registrado. Afeta todos os equipamentos.")
+                ccol1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    st.metric("✅ Total de Equipamentos", len(dashboard_df_scba))
+                with col2:
+                    st.metric("🟢 Equipamentos OK", status_counts.get("🟢 OK", 0))
+                with col3:
+                    st.markdown("**Qualidade do Ar**")
+                    st.write(air_status)
+                    st.caption("Status geral baseado no último laudo.")
                 
                 st.markdown("---")
                 st.subheader("Lista de Equipamentos")

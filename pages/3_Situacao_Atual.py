@@ -354,7 +354,7 @@ def show_dashboard_page():
         st.cache_data.clear()
         st.rerun()
 
-    tab_extinguishers, tab_hoses, tab_shelters = st.tabs(["🔥 Extintores", "💧 Mangueiras", "🧯 Abrigos"])
+    tab_extinguishers, tab_hoses, tab_shelters, tab_scba = st.tabs(["🔥 Extintores", "💧 Mangueiras", "🧯 Abrigos", "💨 C. Autônomo"])
 
     location = streamlit_js_eval(js_expressions="""
         new Promise(function(resolve, reject) {

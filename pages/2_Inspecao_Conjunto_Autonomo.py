@@ -87,6 +87,7 @@ def show_scba_inspection_page():
         st.session_state.setdefault('airq_step', 'start')
         st.session_state.setdefault('airq_processed_data', None)
         st.session_state.setdefault('airq_uploaded_pdf', None)
+        uploader = GoogleDriveUploader()
 
         st.subheader("1. Faça o Upload do Laudo PDF")
         st.info("A IA analisará o laudo, extrairá os dados e criará um registro para cada cilindro mencionado.")
@@ -115,7 +116,6 @@ def show_scba_inspection_page():
             
             if st.button("💾 Confirmar e Registrar Laudo", type="primary", use_container_width=True):
                 with st.spinner("Processando e salvando..."):
-                    uploader = GoogleDriveUploader()
                     pdf_name = f"Laudo_Ar_{data.get('data_ensaio')}_{st.session_state.airq_uploaded_pdf.name}"
                     pdf_link = uploader.upload_file(st.session_state.airq_uploaded_pdf, novo_nome=pdf_name)
                     

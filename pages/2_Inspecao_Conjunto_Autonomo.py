@@ -177,16 +177,36 @@ def show_scba_inspection_page():
                     has_issues = False
 
                     st.subheader("Testes Funcionais")
-                    
-                    teste_estanqueidade = st.radio("1. Teste de Estanqueidade (Vedação Alta Pressão)", ["Aprovado", "Reprovado"], horizontal=True, help="Queda de pressão < 10 bar em 1 minuto?")
+
+                    with st.expander("Ver instruções para o Teste de Estanqueidade"):
+                        st.markdown("""
+                        1.  **Trave** a válvula de demanda (bypass).
+                        2.  **Abra e feche** completamente a válvula do cilindro.
+                        3.  **Monitore** os manômetros por **1 minuto**.
+                        4.  **Critério:** A queda de pressão deve ser **menor que 10 bar**.
+                        """)
+                    teste_estanqueidade = st.radio("1. Teste de Estanqueidade (Vedação Alta Pressão)", ["Aprovado", "Reprovado"], horizontal=True, key="teste_estanqueidade")
                     results["Testes Funcionais"]["Estanqueidade Alta Pressão"] = teste_estanqueidade
                     if teste_estanqueidade == "Reprovado": has_issues = True
                     
-                    teste_alarme = st.radio("2. Teste do Alarme Sonoro de Baixa Pressão", ["Aprovado", "Reprovado"], horizontal=True, help="Alarme soou entre 50-55 bar?")
+                    with st.expander("Ver instruções para o Teste do Alarme Sonoro"):
+                        st.markdown("""
+                        1.  Com o sistema ainda pressurizado, **libere o ar lentamente** pelo botão de purga.
+                        2.  **Observe** o manômetro.
+                        3.  **Critério:** O alarme sonoro deve disparar entre **50-55 bar**.
+                        """)
+                    teste_alarme = st.radio("2. Teste do Alarme Sonoro de Baixa Pressão", ["Aprovado", "Reprovado"], horizontal=True, key="teste_alarme")
                     results["Testes Funcionais"]["Alarme de Baixa Pressão"] = teste_alarme
                     if teste_alarme == "Reprovado": has_issues = True
 
-                    teste_vedacao_mascara = st.radio("3. Teste de Vedação da Peça Facial (Pressão Negativa)", ["Aprovado", "Reprovado"], horizontal=True, help="Máscara colou no rosto sem vazamentos?")
+                    with st.expander("Ver instruções para o Teste de Vedação da Máscara"):
+                        st.markdown("""
+                        1.  **Vista** a máscara e **ajuste** os tirantes.
+                        2.  **Cubra** a entrada da válvula de demanda com a mão.
+                        3.  **Inspire suavemente**.
+                        4.  **Critério:** A máscara deve ser **sugada contra o rosto** e permanecer assim, sem vazamentos.
+                        """)
+                    teste_vedacao_mascara = st.radio("3. Teste de Vedação da Peça Facial (Pressão Negativa)", ["Aprovado", "Reprovado"], horizontal=True, key="teste_vedacao_mascara")
                     results["Testes Funcionais"]["Vedação da Máscara"] = teste_vedacao_mascara
                     if teste_vedacao_mascara == "Reprovado": has_issues = True
 

@@ -473,90 +473,6 @@ def show_dashboard_page():
                 use_container_width=True
             )
 
-    with tab_shelters:
-        st.header("Dashboard de Status dos Abrigos de Emergência")
-        
-        df_shelters_registered = load_sheet_data(SHELTER_SHEET_NAME)
-        df_inspections_history = load_sheet_data(INSPECTIONS_SHELTER_SHEET_NAME)
-        df_action_log = load_sheet_data(LOG_SHELTER_SHEET_NAME)
-
-        if df_shelters_registered.empty:
-            st.warning("Nenhum abrigo de emergência cadastrado.")
-        else:
-            st.info("Aqui está o status de todos os abrigos. Gere um relatório de status completo para impressão ou registre ações corretivas.")
-            if st.button("📄 Gerar Relatório de Status em PDF", type="primary"):
-                report_html = generate_shelters_html(df_shelters_registered, df_inspections_history, df_action_log)
-                js_code = f"""
-                    const reportHtml = {json.dumps(report_html)};
-                    const printWindow = window.open('', '_blank');
-                    if (printWindow) {{
-                        printWindow.document.write(reportHtml);
-                        printWindow.document.close();
-                        printWindow.focus();
-                        setTimeout(() => {{ printWindow.print(); printWindow.close(); }}, 500);
-                    }} else {{
-                        alert('Por favor, desabilite o bloqueador de pop-ups para este site.');
-                    }}
-                """
-                streamlit_js_eval(js_expressions=js_code, key="print_shelters_js")
-                st.success("Relatório de status enviado para impressão!")
-            st.markdown("---")
-
-            dashboard_df_shelters = get_shelter_status_df(df_shelters_registered, df_inspections_history)
-            
-            status_counts = dashboard_df_shelters['status_dashboard'].value_counts()
-            ok_count = status_counts.get("🟢 OK", 0) + status_counts.get("🟢 OK (Ação Realizada)", 0)
-            pending_count = status_counts.get("🟠 COM PENDÊNCIAS", 0) + status_counts.get("🔵 PENDENTE (Nova Inspeção)", 0)
-            col1, col2, col3, col4 = st.columns(4)
-            col1.metric("✅ Total de Abrigos", len(dashboard_df_shelters))
-            col2.metric("🟢 OK", ok_count)
-            col3.metric("🟠 Pendentes", pending_count)
-            col4.metric("🔴 Vencido", status_counts.get("🔴 VENCIDO", 0))
-            st.markdown("---")
-            
-            st.subheader("Lista de Abrigos e Status")
-            for _, row in dashboard_df_shelters.iterrows():
-                status = row['status_dashboard']
-                prox_inspecao_str = row['data_proxima_inspecao_str']
-                expander_title = f"{status} | **ID:** {row['id_abrigo']} | **Próx. Inspeção:** {prox_inspecao_str}"
-                
-                with st.expander(expander_title):
-                    data_inspecao_str = row['data_inspecao_str']
-                    st.write(f"**Última inspeção:** {data_inspecao_str} por **{row['inspetor']}**")
-                    st.write(f"**Resultado da última inspeção:** {row.get('status_geral', 'N/A')}")
-                    
-                    if status not in ["🟢 OK", "🟢 OK (Ação Realizada)"]:
-                        problem_description = status.replace("🔴 ", "").replace("🟠 ", "").replace("🔵 ", "")
-                        if st.button("✍️ Registrar Ação", key=f"action_{row['id_abrigo']}", use_container_width=True):
-                            action_dialog_shelter(row['id_abrigo'], problem_description)
-                    
-                    st.markdown("---")
-                    st.write("**Detalhes da Última Inspeção:**")
-
-                    try:
-                        results_dict = json.loads(row['resultados_json'])
-                        
-                        if results_dict:                
-                            general_conditions = results_dict.pop('Condições Gerais', {})
-                           
-                            if results_dict: 
-                                st.write("**Itens do Inventário:**")
-                                items_df = pd.DataFrame.from_dict(results_dict, orient='index')
-                                st.table(items_df)
-                            
-                            if general_conditions:
-                                st.write("**Condições Gerais do Abrigo:**")
-                                cols = st.columns(len(general_conditions))
-                                for i, (key, value) in enumerate(general_conditions.items()):
-                                    with cols[i]:
-                                        st.metric(label=key, value=value)
-                            
-                        else:
-                            st.info("Nenhum detalhe de inspeção disponível.")
-                            
-                    except (json.JSONDecodeError, TypeError):
-                        st.error("Não foi possível carregar os detalhes desta inspeção (formato inválido).")
-
     with tab_scba:
         st.header("Dashboard de Status dos Conjuntos Autônomos")
         
@@ -564,51 +480,58 @@ def show_dashboard_page():
         df_scba_visual_raw = load_sheet_data(SCBA_VISUAL_INSPECTIONS_SHEET_NAME)
 
         if not df_scba_main_raw or len(df_scba_main_raw) < 2:
-            df_scba_main = pd.DataFrame()
+            st.warning("Nenhum teste de equipamento (Posi3) registrado.")
         else:
             df_scba_main = pd.DataFrame(df_scba_main_raw[1:], columns=df_scba_main_raw[0])
             
-        if not df_scba_visual_raw or len(df_scba_visual_raw) < 2:
-            df_scba_visual = pd.DataFrame()
-        else:
-            df_scba_visual = pd.DataFrame(df_scba_visual_raw[1:], columns=df_scba_visual_raw[0])
+            if not df_scba_visual_raw or len(df_scba_visual_raw) < 2:
+                df_scba_visual = pd.DataFrame() # Cria um DF vazio se não houver inspeções visuais
+            else:
+                df_scba_visual = pd.DataFrame(df_scba_visual_raw[1:], columns=df_scba_visual_raw[0])
 
-        if df_scba_main.empty:
-            st.warning("Nenhum teste de equipamento (Posi3) registrado.")
-        else:
             dashboard_df = get_scba_status_df(df_scba_main, df_scba_visual)
             
-            status_counts = dashboard_df['status_consolidado'].value_counts()
-            col1, col2, col3, col4 = st.columns(4)
-            col1.metric("✅ Total", len(dashboard_df))
-            col2.metric("🟢 OK", status_counts.get("🟢 OK", 0))
-            col3.metric("🟠 Pendências", status_counts.get("🟠 COM PENDÊNCIAS", 0))
-            col4.metric("🔴 Vencidos", status_counts.get("🔴 VENCIDO (Teste Posi3)", 0) + status_counts.get("🔴 VENCIDO (Insp. Periódica)", 0))
-            st.markdown("---")
-            
-            for _, row in dashboard_df.iterrows():
-                status = row['status_consolidado']
-                expander_title = f"{status} | **S/N:** {row['numero_serie_equipamento']} | **Val. Teste:** {pd.to_datetime(row['data_validade']).strftime('%d/%m/%Y')} | **Próx. Insp.:** {pd.to_datetime(row['data_proxima_inspecao']).strftime('%d/%m/%Y') if pd.notna(row['data_proxima_inspecao']) else 'N/A'}"
+            if dashboard_df.empty:
+                st.info("Não há equipamentos SCBA para exibir no dashboard.")
+            else:
+                status_counts = dashboard_df['status_consolidado'].value_counts()
+                col1, col2, col3, col4 = st.columns(4)
+                col1.metric("✅ Total", len(dashboard_df))
+                col2.metric("🟢 OK", status_counts.get("🟢 OK", 0))
+                col3.metric("🟠 Pendências", status_counts.get("🟠 COM PENDÊNCIAS", 0))
+                col4.metric("🔴 Vencidos", status_counts.get("🔴 VENCIDO (Teste Posi3)", 0) + status_counts.get("🔴 VENCIDO (Insp. Periódica)", 0))
+                st.markdown("---")
                 
-                with st.expander(expander_title):
-                    st.write(f"**Última Inspeção Periódica:** {pd.to_datetime(row['data_inspecao']).strftime('%d/%m/%Y') if pd.notna(row['data_inspecao']) else 'N/A'} - **Status:** {row.get('status_geral', 'N/A')}")
+                for _, row in dashboard_df.iterrows():
+                    val_teste_str = pd.to_datetime(row['data_validade']).strftime('%d/%m/%Y') if pd.notna(row['data_validade']) else 'N/A'
+                    prox_insp_str = pd.to_datetime(row['data_proxima_inspecao']).strftime('%d/%m/%Y') if pd.notna(row['data_proxima_inspecao']) else 'N/A'
+                    status = row['status_consolidado']
+                    expander_title = f"{status} | **S/N:** {row['numero_serie_equipamento']} | **Val. Teste:** {val_teste_str} | **Próx. Insp.:** {prox_insp_str}"
                     
-                    if status != "🟢 OK":
-                        if st.button("✍️ Registrar Plano de Ação", key=f"action_scba_{row['numero_serie_equipamento']}", use_container_width=True):
-                            action_dialog_scba(row['numero_serie_equipamento'], status)
-                    
-                    st.markdown("**Detalhes da Última Inspeção Periódica:**")
-                    try:
-                        results = json.loads(row['resultados_json'])
-                        for category, items in results.items():
-                            st.write(f"**{category}:**")
-                            for item, item_status in items.items():
-                                if isinstance(item_status, str) and item_status not in ["C", "Aprovado", "Sim"]:
-                                    st.markdown(f"- {item}: <span style='color: red; font-weight: bold;'>{item_status}</span>", unsafe_allow_html=True)
-                                else:
-                                    st.markdown(f"- {item}: {item_status}")
-                    except (json.JSONDecodeError, TypeError, AttributeError):
-                        st.info("Nenhum detalhe de inspeção periódica encontrado.")
+                    with st.expander(expander_title):
+                        data_insp_str = pd.to_datetime(row.get('data_inspecao')).strftime('%d/%m/%Y') if pd.notna(row.get('data_inspecao')) else 'N/A'
+                        st.write(f"**Última Inspeção Periódica:** {data_insp_str} - **Status:** {row.get('status_geral', 'N/A')}")
+                        
+                        if status != "🟢 OK":
+                            if st.button("✍️ Registrar Plano de Ação", key=f"action_scba_{row['numero_serie_equipamento']}", use_container_width=True):
+                                action_dialog_scba(row['numero_serie_equipamento'], status)
+                        
+                        st.markdown("**Detalhes da Última Inspeção Periódica:**")
+                        try:
+                            results_json = row.get('resultados_json')
+                            if results_json and pd.notna(results_json):
+                                results = json.loads(results_json)
+                                for category, items in results.items():
+                                    st.write(f"**{category}:**")
+                                    for item, item_status in items.items():
+                                        if isinstance(item_status, str) and item_status not in ["C", "Aprovado", "Sim"]:
+                                            st.markdown(f"- {item}: <span style='color: red; font-weight: bold;'>{item_status}</span>", unsafe_allow_html=True)
+                                        else:
+                                            st.markdown(f"- {item}: {item_status}")
+                            else:
+                                st.info("Nenhum detalhe de inspeção periódica encontrado.")
+                        except (json.JSONDecodeError, TypeError):
+                            st.info("Nenhum detalhe de inspeção periódica encontrado.")
 
 
 # --- Boilerplate de Autenticação ---

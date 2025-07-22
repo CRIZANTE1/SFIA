@@ -602,47 +602,55 @@ def show_dashboard_page():
                         if results_json and pd.notna(results_json):
                             results = json.loads(results_json)
                             
-                            
-                            st.markdown("##### Testes Funcionais")
-                            testes = results.get("Testes Funcionais", {})
-                            if testes:
-                                cols_testes = st.columns(len(testes))
-                                for i, (teste, resultado) in enumerate(testes.items()):
-                                    icon = "✅" if resultado == "Aprovado" else "❌"
-                                    cols_testes[i].metric(teste, f"{icon} {resultado}")
-                            else:
-                                st.caption("Não realizado.")
+                            with st.expander("Ver detalhes da inspeção"):
+                                
+                                st.markdown("""
+                                <style>
+                                .small-font {
+                                    font-size:0.9rem;
+                                    line-height: 1.2;
+                                }
+                                </style>
+                                """, unsafe_allow_html=True)
 
-                            st.markdown("---")
-                            
-                            st.markdown("##### Checklist Visual de Componentes")
-                            col_cilindro, col_mascara = st.columns(2)
+                                # 1. Testes Funcionais (agora dentro de colunas menores)
+                                st.markdown("<p class='small-font' style='font-weight: bold;'>Testes Funcionais</p>", unsafe_allow_html=True)
+                                testes = results.get("Testes Funcionais", {})
+                                if testes:
+                                    cols_testes = st.columns(len(testes))
+                                    for i, (teste, resultado) in enumerate(testes.items()):
+                                        icon = "✅" if resultado == "Aprovado" else "❌"
+                                        # Usando markdown para controlar o tamanho
+                                        cols_testes[i].markdown(f"<p class='small-font'><b>{teste}</b><br>{icon} {resultado}</p>", unsafe_allow_html=True)
+                                
+                                # 2. Checklist Visual
+                                st.markdown("<p class='small-font' style='font-weight: bold; margin-top: 10px;'>Checklist Visual</p>", unsafe_allow_html=True)
+                                col_cilindro, col_mascara = st.columns(2)
 
-                            with col_cilindro:
-                                st.write("**Cilindro de Ar**")
-                                cilindro_itens = results.get("Cilindro", {})
-                                obs_cilindro = cilindro_itens.pop("Observações", "")
-                                for item, status in cilindro_itens.items():
-                                    icon = "✔️" if status == "C" else ("❌" if status == "N/C" else "➖")
-                                    st.markdown(f"{icon} {item}")
-                                if obs_cilindro:
-                                    st.caption(f"Obs: {obs_cilindro}")
+                                with col_cilindro:
+                                    st.markdown("<p class='small-font'><b>Cilindro de Ar</b></p>", unsafe_allow_html=True)
+                                    cilindro_itens = results.get("Cilindro", {})
+                                    obs_cilindro = cilindro_itens.pop("Observações", "")
+                                    for item, status in cilindro_itens.items():
+                                        icon = "✔️" if status == "C" else ("❌" if status == "N/C" else "➖")
+                                        st.markdown(f"<p class='small-font'>{icon} {item}</p>", unsafe_allow_html=True)
+                                    if obs_cilindro:
+                                        st.markdown(f"<p class='small-font' style='font-style: italic;'>Obs: {obs_cilindro}</p>", unsafe_allow_html=True)
 
-                            with col_mascara:
-                                st.write("**Máscara Facial**")
-                                mascara_itens = results.get("Mascara", {})
-                                obs_mascara = mascara_itens.pop("Observações", "")
-                                for item, status in mascara_itens.items():
-                                    icon = "✔️" if status == "C" else ("❌" if status == "N/C" else "➖")
-                                    st.markdown(f"{icon} {item}")
-                                if obs_mascara:
-                                    st.caption(f"Obs: {obs_mascara}")
+                                with col_mascara:
+                                    st.markdown("<p class='small-font'><b>Máscara Facial</b></p>", unsafe_allow_html=True)
+                                    mascara_itens = results.get("Mascara", {})
+                                    obs_mascara = mascara_itens.pop("Observações", "")
+                                    for item, status in mascara_itens.items():
+                                        icon = "✔️" if status == "C" else ("❌" if status == "N/C" else "➖")
+                                        st.markdown(f"<p class='small-font'>{icon} {item}</p>", unsafe_allow_html=True)
+                                    if obs_mascara:
+                                        st.markdown(f"<p class='small-font' style='font-style: italic;'>Obs: {obs_mascara}</p>", unsafe_allow_html=True)
 
                         else:
                             st.info("Nenhum detalhe de inspeção periódica encontrado.")
                     except (json.JSONDecodeError, TypeError, AttributeError):
                         st.info("Nenhum detalhe de inspeção periódica encontrado.")
-
 
 # --- Boilerplate de Autenticação ---
 if not show_login_page(): st.stop()

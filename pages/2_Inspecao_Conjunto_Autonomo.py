@@ -4,7 +4,6 @@ import sys
 import os
 from datetime import date
 
-# Adiciona o diretório raiz ao path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from operations.scba_operations import save_scba_inspection
@@ -84,14 +83,14 @@ def show_scba_inspection_page():
 
 
     with tab_quality_air:
-        st.header("Registrar Laudo de Qualidade do Ar e Associar a Cilindros")
-        
+        st.header("Registrar Laudo de Qualidade do Ar com IA")
         st.session_state.setdefault('airq_step', 'start')
         st.session_state.setdefault('airq_processed_data', None)
         st.session_state.setdefault('airq_uploaded_pdf', None)
-        st.session_state.setdefault('airq_pdf_link', None)
 
         st.subheader("1. Faça o Upload do Laudo PDF")
+        st.info("A IA analisará o laudo, extrairá os dados e criará um registro para cada cilindro mencionado.")
+        
         uploaded_pdf = st.file_uploader("Escolha o laudo de qualidade do ar", type=["pdf"], key="airq_pdf_uploader")
         if uploaded_pdf:
             st.session_state.airq_uploaded_pdf = uploaded_pdf
@@ -103,84 +102,43 @@ def show_scba_inspection_page():
                 
                 if extracted_data and "laudo" in extracted_data:
                     st.session_state.airq_processed_data = extracted_data["laudo"]
-                    st.session_state.airq_step = 'confirm_and_upload'
+                    st.session_state.airq_step = 'confirm'
                     st.rerun()
                 else:
                     st.error("A IA não conseguiu extrair os dados do laudo.")
-
-        if st.session_state.airq_step == 'confirm_and_upload':
-            with st.spinner("Salvando PDF no Google Drive..."):
-                data = st.session_state.airq_processed_data
-                pdf_name = f"Laudo_Qualidade_Ar_{data.get('data_ensaio')}.pdf"
-                pdf_link = uploader.upload_file(st.session_state.airq_uploaded_pdf, novo_nome=pdf_name)
-                
-                if pdf_link:
-                    st.session_state.airq_pdf_link = pdf_link
-                    st.session_state.airq_step = 'associate'
-                    st.rerun()
-                else:
-                    st.error("Falha ao fazer o upload do laudo para o Google Drive.")
-                    st.session_state.airq_step = 'start'
-
-        if st.session_state.airq_step == 'associate':
+        
+        if st.session_state.airq_step == 'confirm' and st.session_state.airq_processed_data:
             data = st.session_state.airq_processed_data
-            st.subheader("2. Confira os Dados Extraídos")
-            st.metric("Data do Ensaio", data.get('data_ensaio', 'N/A'))
-            st.metric("Resultado", data.get('resultado_geral', 'N/A'))
+            st.subheader("2. Confira os Dados e Salve")
+            st.metric("Resultado do Laudo", data.get('resultado_geral', 'N/A'))
+            st.info(f"O laudo será aplicado aos seguintes cilindros: {', '.join(data.get('cilindros', []))}")
             
-            st.subheader("3. Associe o Laudo aos Cilindros")
-            st.info("Selecione todos os conjuntos autônomos que são abastecidos por este compressor/fonte de ar.")
-            
-            try:
-                df_scba = load_sheet_data(SCBA_SHEET_NAME)
-                df_equipment_only = df_scba.dropna(subset=['numero_serie_equipamento'])
-                
-                options = df_equipment_only['numero_serie_equipamento'].tolist()
-                
-                selected_cylinders = st.multiselect(
-                    "Selecione os Números de Série dos Equipamentos:",
-                    options=options,
-                    default=options 
-                )
-
-                if st.button("✅ Confirmar Associação", type="primary", use_container_width=True):
-                    if not selected_cylinders:
-                        st.warning("Nenhum cilindro selecionado.")
-                    else:
-                        with st.spinner("Atualizando registros na planilha..."):
-                            update_values = [
+            if st.button("💾 Confirmar e Registrar Laudo", type="primary", use_container_width=True):
+                with st.spinner("Processando e salvando..."):
+                    pdf_name = f"Laudo_Ar_{data.get('data_ensaio')}.pdf"
+                    pdf_link = uploader.upload_file(st.session_state.airq_uploaded_pdf, novo_nome=pdf_name)
+                    
+                    if pdf_link:
+                        cilindros = data.get('cilindros', [])
+                        for cilindro_sn in cilindros:
+                           
+                            data_row = [None] * 18
+                            data_row[2] = cilindro_sn # Coluna C: numero_serie_equipamento
+                            
+                            data_row.extend([
                                 data.get('data_ensaio'),
                                 data.get('resultado_geral'),
                                 data.get('observacoes'),
-                                st.session_state.airq_pdf_link
-                            ]
-                            
-                            header = df_scba[0]
-                            col_index = header.index('numero_serie_equipamento') 
-                            
-                            rows_to_update = []
-                            for i, row in enumerate(df_scba[1:], start=2): 
-                                if row[col_index] in selected_cylinders:
-                                    rows_to_update.append(i)
-                            
-                            update_requests = []
-                            for row_num in rows_to_update:
-                                range_name = f"S{row_num}:V{row_num}" 
-                                uploader.update_cells(SCBA_SHEET_NAME, range_name, [update_values])
-                            
-                            st.success(f"{len(rows_to_update)} registros de conjuntos autônomos foram atualizados com o novo laudo de ar!")
-                            
-                            st.session_state.airq_step = 'start'
-                            st.session_state.airq_processed_data = None
-                            st.session_state.airq_uploaded_pdf = None
-                            st.session_state.airq_pdf_link = None
-                            st.cache_data.clear()
-                            st.rerun()
-
-            except Exception as e:
-                st.error(f"Ocorreu um erro ao carregar os dados dos cilindros: {e}")
-                st.exception(e)
-                st.session_state.airq_step = 'start'
+                                pdf_link
+                            ])
+                            uploader.append_data_to_sheet(SCBA_SHEET_NAME, data_row)
+                        
+                        st.success(f"Laudo de qualidade do ar registrado com sucesso para {len(cilindros)} cilindros!")
+                        st.session_state.airq_step = 'start'
+                        st.cache_data.clear()
+                        st.rerun()
+                    else:
+                        st.error("Falha no upload do PDF.")
 
 
 if not show_login_page(): 

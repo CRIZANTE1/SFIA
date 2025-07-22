@@ -146,3 +146,61 @@ def get_shelter_inventory_prompt():
       ]
     }
     """    
+
+def get_scba_inspection_prompt():
+    """
+    Retorna um prompt para extrair dados de relatórios de teste de
+    conjuntos autônomos (SCBA) do tipo Posi3 USB.
+    """
+    return """
+    Você é um especialista em analisar relatórios "Resultados do teste Posi3 USB" para equipamentos de respiração autônoma (SCBA).
+    Sua tarefa é analisar o documento PDF e extrair as informações detalhadas do equipamento e seus testes.
+    O PDF pode conter múltiplos relatórios em páginas diferentes. Extraia os dados de CADA um.
+
+    **Para cada equipamento/relatório no PDF, extraia os seguintes campos:**
+
+    1.  `data_teste`: A data e hora principal do teste, localizada no topo à direita. Formato: "AAAA-MM-DD HH:MM:SS".
+    2.  `data_validade`: A data de validade do laudo, encontrada no final do texto. Formato: "AAAA-MM-DD".
+    3.  `numero_serie_equipamento`: O número de série principal do equipamento, rotulado como "S/N".
+    4.  `marca`: A marca do equipamento. Ex: "FANGZHAN".
+    5.  `modelo`: O modelo do equipamento. Ex: "RHZK6.8".
+    6.  `numero_serie_mascara`: O ID auxiliar da "Máscara".
+    7.  `numero_serie_segundo_estagio`: O ID auxiliar do "Segundo estágio".
+    8.  `resultado_final`: A conclusão geral do teste, geralmente "APTO PARA USO".
+    9.  `vazamento_mascara_resultado`: O status do teste "Vazamento de máscara" (Ex: "Aprovado").
+    10. `vazamento_mascara_valor`: O valor numérico e a unidade do teste "Vazamento de máscara" (Ex: "0,2 mbar").
+    11. `vazamento_pressao_alta_resultado`: O status do teste "Vazamento de pressão alta" (Ex: "Aprovado").
+    12. `vazamento_pressao_alta_valor`: O valor numérico e a unidade do teste "Vazamento de pressão alta" (Ex: "0,7 bar").
+    13. `pressao_alarme_resultado`: O status do teste "300 bar Whistle" (Ex: "Aprovado").
+    14. `pressao_alarme_valor`: O valor numérico e a unidade do teste "300 bar Whistle" (Ex: "57,0 bar").
+    15. `empresa_executante`: O nome da empresa que realizou o teste. Ex: "TECNO SERVICE DO BRASIL LTDA".
+    16. `responsavel_tecnico`: O nome do responsável técnico que assinou o laudo. Ex: "Edmilson Luis da Silva".
+
+    **Formato de Saída OBRIGATÓRIO:**
+    Retorne a resposta APENAS como um objeto JSON com uma chave "scbas" contendo uma LISTA de objetos,
+    onde cada objeto representa um equipamento SCBA.
+
+    Exemplo de formato de saída:
+    {
+      "scbas": [
+        {
+          "data_teste": "2024-10-14 12:55:32",
+          "data_validade": "2025-10-14",
+          "numero_serie_equipamento": "19268077",
+          "marca": "FANGZHAN",
+          "modelo": "RHZK6.8",
+          "numero_serie_mascara": "2020053642",
+          "numero_serie_segundo_estagio": "190311389",
+          "resultado_final": "APTO PARA USO",
+          "vazamento_mascara_resultado": "Aprovado",
+          "vazamento_mascara_valor": "0,2 mbar",
+          "vazamento_pressao_alta_resultado": "Aprovado",
+          "vazamento_pressao_alta_valor": "0,7 bar",
+          "pressao_alarme_resultado": "Aprovado",
+          "pressao_alarme_valor": "57,0 bar",
+          "empresa_executante": "TECNO SERVICE DO BRASIL LTDA",
+          "responsavel_tecnico": "Edmilson Luis da Silva"
+        }
+      ]
+    }
+    """

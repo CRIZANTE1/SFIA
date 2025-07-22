@@ -13,6 +13,7 @@ HOSE_SHEET_NAME = "mangueiras"
 SHELTER_SHEET_NAME = "abrigos"
 INSPECTIONS_SHELTER_SHEET_NAME = "inspecoes_abrigos"
 LOG_SHELTER_SHEET_NAME = "log_abrigos"
+SCBA_SHEET_NAME = "conjuntos_autonomos"
 
 def get_credentials_dict():
     """Retorna as credenciais do serviço do Google, seja do arquivo local ou do Streamlit Cloud."""

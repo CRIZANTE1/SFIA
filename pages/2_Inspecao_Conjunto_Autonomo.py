@@ -18,9 +18,8 @@ from config.page_config import set_page_config
 
 set_page_config()
 pdf_qa = PDFQA()
-uploader = GoogleDriveUploader() 
 
-def show_scba_inspection_page():
+def show_scba_inspection_page(uploader):
     st.title("💨 Inspeção de Conjuntos Autônomos (SCBA)")
 
     tab_test_scba, tab_quality_air = st.tabs([

@@ -14,7 +14,7 @@ from auth.login_page import show_login_page, show_user_header, show_logout_butto
 from auth.auth_utils import is_admin_user, get_user_display_name
 from operations.demo_page import show_demo_page
 from config.page_config import set_page_config 
-from gdrive.config import HOSE_SHEET_NAME, SHELTER_SHEET_NAME, INSPECTIONS_SHELTER_SHEET_NAME, LOG_SHELTER_SHEET_NAME
+from gdrive.config import HOSE_SHEET_NAME, SHELTER_SHEET_NAME, INSPECTIONS_SHELTER_SHEET_NAME, LOG_SHELTER_SHEET_NAME, SCBA_SHEET_NAME
 from reports.reports_pdf import generate_shelters_html
 from operations.shelter_operations import save_shelter_action_log, save_shelter_inspection
 from operations.corrective_actions import save_corrective_action
@@ -25,6 +25,36 @@ from operations.photo_operations import upload_evidence_photo
 
 set_page_config()
 
+def get_scba_status_df(df_scba_history):
+    if df_scba_history.empty:
+        return pd.DataFrame(), "N/A"
+
+    equipment_tests = df_scba_history.dropna(subset=['data_teste']).copy()
+    air_quality_reports = df_scba_history.dropna(subset=['data_qualidade_ar']).copy()
+
+    air_status_geral = "⚠️ Pendente"
+    if not air_quality_reports.empty:
+        air_quality_reports['data_qualidade_ar'] = pd.to_datetime(air_quality_reports['data_qualidade_ar'], errors='coerce')
+        last_air_report = air_quality_reports.sort_values('data_qualidade_ar', ascending=False).iloc[0]
+        qa_status = last_air_report['status_qualidade_ar']
+        qa_date = last_air_report['data_qualidade_ar'].strftime('%d/%m/%Y')
+        air_status_geral = f"{'🟢' if qa_status == 'Aprovado' else '🔴'} {qa_status} (Laudo de {qa_date})"
+
+    if equipment_tests.empty:
+        return pd.DataFrame(), air_status_geral
+        
+    equipment_tests['data_validade'] = pd.to_datetime(equipment_tests['data_validade'], errors='coerce')
+    latest_tests = equipment_tests.sort_values('data_teste', ascending=False).drop_duplicates(subset='numero_serie_equipamento', keep='first')
+    
+    today = pd.Timestamp(date.today())
+    latest_tests['status_equipamento'] = np.where(latest_tests['data_validade'] < today, '🔴 VENCIDO', '🟢 OK')
+    
+    latest_tests['data_validade'] = latest_tests['data_validade'].dt.strftime('%d/%m/%Y').fillna('N/A')
+
+    display_df = latest_tests[['numero_serie_equipamento', 'status_equipamento', 'data_validade', 'link_relatorio_pdf']]
+    
+    return display_df, air_status_geral
+    
 def get_hose_status_df(df_hoses):
     if df_hoses.empty:
         return pd.DataFrame()
@@ -109,9 +139,6 @@ def get_shelter_status_df(df_shelters_registered, df_inspections):
     existing_columns = [col for col in display_columns if col in dashboard_df.columns]
     
     return dashboard_df[existing_columns]
-
-
-
 
 
 def get_consolidated_status_df(df_full, df_locais):
@@ -515,6 +542,37 @@ def show_dashboard_page():
                     except (json.JSONDecodeError, TypeError):
                         st.error("Não foi possível carregar os detalhes desta inspeção (formato inválido).")
 
+    with tab_scba:
+            st.header("Dashboard de Status dos Conjuntos Autônomos")
+            df_scba_history = load_sheet_data(SCBA_SHEET_NAME)
+    
+            if df_scba_history.empty:
+                st.warning("Nenhum registro de conjunto autônomo encontrado.")
+            else:
+                dashboard_df_scba, air_status = get_scba_status_df(df_scba_history)
+                
+                status_counts = dashboard_df_scba['status_equipamento'].value_counts()
+                col1, col2, col3 = st.columns(3)
+                col1.metric("✅ Total de Equipamentos", len(dashboard_df_scba))
+                col2.metric("🟢 Equipamentos OK", status_counts.get("🟢 OK", 0))
+                col3.metric("🌬️ Qualidade do Ar", air_status, help="Status baseado no último laudo de qualidade do ar registrado. Afeta todos os equipamentos.")
+                
+                st.markdown("---")
+                st.subheader("Lista de Equipamentos")
+                st.dataframe(
+                    dashboard_df_scba,
+                    column_config={
+                        "numero_serie_equipamento": "Nº de Série",
+                        "status_equipamento": "Status do Equipamento",
+                        "data_validade": "Validade do Teste",
+                        "link_relatorio_pdf": st.column_config.LinkColumn(
+                            "Relatório (PDF)",
+                            display_text="🔗 Ver PDF"
+                        )
+                    },
+                    use_container_width=True,
+                    hide_index=True
+                )
 
 # --- Boilerplate de Autenticação ---
 if not show_login_page(): st.stop()

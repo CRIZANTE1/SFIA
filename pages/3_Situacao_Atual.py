@@ -25,22 +25,17 @@ from operations.photo_operations import upload_evidence_photo
 
 set_page_config()
 
-def get_scba_status_df(df_scba_main_raw, df_scba_visual_raw):
-    if not df_scba_main_raw or len(df_scba_main_raw) < 2:
+def get_scba_status_df(df_scba_main, df_scba_visual):
+    if df_scba_main.empty:
         return pd.DataFrame()
 
-    header_main = df_scba_main_raw[0]
-    df_scba_main = pd.DataFrame(df_scba_main_raw[1:], columns=header_main)
-    
     equipment_tests = df_scba_main.dropna(subset=['numero_serie_equipamento', 'data_teste']).copy()
     if equipment_tests.empty:
         return pd.DataFrame()
         
     latest_tests = equipment_tests.sort_values('data_teste', ascending=False).drop_duplicates(subset='numero_serie_equipamento', keep='first')
     
-    if df_scba_visual_raw and len(df_scba_visual_raw) > 1:
-        header_visual = df_scba_visual_raw[0]
-        df_scba_visual = pd.DataFrame(df_scba_visual_raw[1:], columns=header_visual)
+    if not df_scba_visual.empty:
         df_scba_visual['data_inspecao'] = pd.to_datetime(df_scba_visual['data_inspecao'], errors='coerce')
         latest_visual = df_scba_visual.sort_values('data_inspecao', ascending=False).drop_duplicates(subset='numero_serie_equipamento', keep='first')
         dashboard_df = pd.merge(latest_tests, latest_visual, on='numero_serie_equipamento', how='left', suffixes=('_teste', '_visual'))
@@ -564,8 +559,19 @@ def show_dashboard_page():
 
     with tab_scba:
         st.header("Dashboard de Status dos Conjuntos Autônomos")
-        df_scba_main = load_sheet_data(SCBA_SHEET_NAME)
-        df_scba_visual = load_sheet_data(SCBA_VISUAL_INSPECTIONS_SHEET_NAME)
+        
+        df_scba_main_raw = load_sheet_data(SCBA_SHEET_NAME)
+        df_scba_visual_raw = load_sheet_data(SCBA_VISUAL_INSPECTIONS_SHEET_NAME)
+
+        if not df_scba_main_raw or len(df_scba_main_raw) < 2:
+            df_scba_main = pd.DataFrame()
+        else:
+            df_scba_main = pd.DataFrame(df_scba_main_raw[1:], columns=df_scba_main_raw[0])
+            
+        if not df_scba_visual_raw or len(df_scba_visual_raw) < 2:
+            df_scba_visual = pd.DataFrame()
+        else:
+            df_scba_visual = pd.DataFrame(df_scba_visual_raw[1:], columns=df_scba_visual_raw[0])
 
         if df_scba_main.empty:
             st.warning("Nenhum teste de equipamento (Posi3) registrado.")

@@ -520,7 +520,7 @@ def show_dashboard_page():
                 status = row['status_dashboard']
                 prox_inspecao_str = row['data_proxima_inspecao_str']
                 local_info = row.get('local', 'N/A') 
-                expander_title = f"{status} | **ID:** {row['id_abrigo']} | **Próx. Inspeção:** {prox_inspecao_str}"
+                expander_title = f"{status} | **ID:** {row['id_abrigo']} | **Local:** {local_info} | **Próx. Inspeção:** {prox_inspecao_str}"
                 
                 with st.expander(expander_title):
                     data_inspecao_str = row['data_inspecao_str']

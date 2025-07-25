@@ -5,7 +5,7 @@ from gdrive.config import SHELTER_SHEET_NAME, INSPECTIONS_SHELTER_SHEET_NAME, LO
 from datetime import date 
 from dateutil.relativedelta import relativedelta 
 
-def save_shelter_inventory(shelter_id, client, items_dict):
+def save_shelter_inventory(shelter_id, client, local, items_dict):
     """
     Salva o inventário de um novo abrigo de emergência na planilha.
     Converte o dicionário de itens em uma string JSON para armazenamento.
@@ -13,7 +13,7 @@ def save_shelter_inventory(shelter_id, client, items_dict):
     try:
         uploader = GoogleDriveUploader()
         items_json_string = json.dumps(items_dict, ensure_ascii=False)
-        data_row = [shelter_id, client, items_json_string]
+        data_row = [shelter_id, client, local, items_json_string]
         uploader.append_data_to_sheet(SHELTER_SHEET_NAME, data_row)
         return True
     except Exception as e:

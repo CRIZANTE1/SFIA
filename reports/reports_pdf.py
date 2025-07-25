@@ -6,7 +6,7 @@ import requests
 def generate_shelters_html(df_shelters_registered, df_inspections, df_action_log):
     """
     Gera um relatório de status completo para os abrigos, incluindo o resultado
-    da última inspeção e o log de ações corretivas.
+    da última inspeção, o log de ações corretivas e a localização.
     """
     styles = """
     <style>
@@ -15,7 +15,8 @@ def generate_shelters_html(df_shelters_registered, df_inspections, df_action_log
         .report-header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
         .shelter-container { border: 1px solid #ccc; border-radius: 8px; padding: 15px; margin-bottom: 20px; page-break-inside: avoid; }
         .shelter-title { font-size: 1.5em; font-weight: bold; color: #0068c9; }
-        .shelter-client { font-size: 1.1em; color: #555; margin-bottom: 15px; }
+        /* Estilo para o cabeçalho do abrigo com ID, Local e Cliente */
+        .shelter-info { display: flex; justify-content: space-between; font-size: 1.1em; color: #555; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
         .subsection-title { font-weight: bold; margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 10px; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
@@ -28,7 +29,6 @@ def generate_shelters_html(df_shelters_registered, df_inspections, df_action_log
     html = f"<html><head><title>Relatório de Status de Abrigos</title>{styles}</head><body>"
     html += "<div class='report-header'><h1>Relatório de Status de Abrigos de Emergência</h1></div>"
 
-    # Preparar dados de inspeções mais recentes
     latest_inspections = pd.DataFrame()
     if not df_inspections.empty:
         df_inspections['data_inspecao_dt'] = pd.to_datetime(df_inspections['data_inspecao'])
@@ -36,11 +36,17 @@ def generate_shelters_html(df_shelters_registered, df_inspections, df_action_log
 
     for _, shelter in df_shelters_registered.iterrows():
         shelter_id = shelter['id_abrigo']
+        shelter_local = shelter.get('local', 'N/A')
+        shelter_client = shelter.get('cliente', 'N/A') 
+
         html += f"<div class='shelter-container'>"
-        html += f"<div class='shelter-title'>Abrigo ID: {shelter_id}</div>"
-        html += f"<div class='shelter-client'>Cliente: {shelter['cliente']}</div>"
         
-        # --- Seção do Inventário e Última Inspeção ---
+        html += f"<div class='shelter-title'>Abrigo ID: {shelter_id}</div>"
+        html += f"<div class='shelter-info'>"
+        html += f"<span><strong>Local:</strong> {shelter_local}</span>"
+        html += f"<span><strong>Cliente:</strong> {shelter_client}</span>"
+        html += f"</div>"
+        
         html += "<div class='subsection-title'>Resultado da Última Inspeção</div>"
         
         last_inspection = latest_inspections[latest_inspections['id_abrigo'] == shelter_id]
@@ -62,7 +68,6 @@ def generate_shelters_html(df_shelters_registered, df_inspections, df_action_log
         else:
             html += "<p>Nenhuma inspeção registrada para este abrigo.</p>"
 
-        # --- Seção do Log de Ações Corretivas ---
         html += "<div class='subsection-title'>Histórico de Ações Corretivas</div>"
         action_log_entries = df_action_log[df_action_log['id_abrigo'] == shelter_id] if not df_action_log.empty else pd.DataFrame()
         

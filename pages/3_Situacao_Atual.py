@@ -114,7 +114,7 @@ def get_shelter_status_df(df_shelters_registered, df_inspections):
     latest_inspections = pd.DataFrame(latest_inspections_list)
 
     if not latest_inspections.empty:
-        dashboard_df = pd.merge(df_shelters_registered[['id_abrigo', 'cliente']], latest_inspections, on='id_abrigo', how='left')
+        dashboard_df = pd.merge(df_shelters_registered[['id_abrigo', 'cliente', 'local']], latest_inspections, on='id_abrigo', how='left')
     else:
 
         dashboard_df = df_shelters_registered.copy()
@@ -137,7 +137,7 @@ def get_shelter_status_df(df_shelters_registered, df_inspections):
     dashboard_df['inspetor'] = dashboard_df['inspetor'].fillna('N/A')
     dashboard_df['resultados_json'] = dashboard_df['resultados_json'].fillna('{}')
 
-    display_columns = ['id_abrigo', 'status_dashboard', 'data_inspecao_str', 'data_proxima_inspecao_str', 'status_geral', 'inspetor', 'resultados_json']
+    display_columns = ['id_abrigo', 'status_dashboard', 'data_inspecao_str', 'data_proxima_inspecao_str', 'status_geral', 'inspetor', 'resultados_json', 'local']
     existing_columns = [col for col in display_columns if col in dashboard_df.columns]
     
     return dashboard_df[existing_columns]
@@ -519,6 +519,7 @@ def show_dashboard_page():
             for _, row in dashboard_df_shelters.iterrows():
                 status = row['status_dashboard']
                 prox_inspecao_str = row['data_proxima_inspecao_str']
+                local_info = row.get('local', 'N/A') 
                 expander_title = f"{status} | **ID:** {row['id_abrigo']} | **Próx. Inspeção:** {prox_inspecao_str}"
                 
                 with st.expander(expander_title):

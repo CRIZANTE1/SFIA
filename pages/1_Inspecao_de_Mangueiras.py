@@ -138,6 +138,7 @@ def show_hose_and_shelter_page():
                         save_shelter_inventory(
                             shelter_id=record.get('id_abrigo'),
                             client=record.get('cliente'),
+                            local=record.get('local'),
                             items_dict=record.get('itens', {})
                         )
                         progress_bar.progress((i + 1) / total_count)

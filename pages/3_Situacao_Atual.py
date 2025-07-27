@@ -20,7 +20,7 @@ from operations.shelter_operations import save_shelter_action_log, save_shelter_
 from operations.corrective_actions import save_corrective_action
 from reports.reports_pdf import generate_shelters_html 
 from operations.photo_operations import upload_evidence_photo
-
+from reports.monthly_report_ui import show_monthly_report_interface
 
 
 set_page_config()
@@ -364,6 +364,10 @@ def action_form(item, df_full_history, location):
 
 def show_dashboard_page():
     st.title("Situação Atual dos Equipamentos de Emergência")
+    
+    with st.expander("📄 Gerar Relatório Mensal de Inspeção de Extintores"):
+        show_monthly_report_interface()
+    st.markdown("---")
     
     if st.button("Limpar Cache e Recarregar Dados"):
         st.cache_data.clear()

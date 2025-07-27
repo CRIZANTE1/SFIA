@@ -17,71 +17,73 @@ from gdrive.config import (
     LOG_ACTIONS, LOG_SHELTER_SHEET_NAME, LOG_SCBA_SHEET_NAME
 )
 
-def format_dataframe_for_display(df, is_log=False):
+def format_dataframe_for_display(df, sheet_name):
     """
-    Prepara o DataFrame para exibição, renomeando colunas e formatando.
+    Prepara o DataFrame para exibição, renomeando colunas e selecionando as mais importantes.
     """
     if df.empty:
         return df
     
     df = df.copy()
 
-    log_columns = {
-        'data_acao': 'Data da Ação',
-        'id_abrigo': 'ID do Abrigo',
-        'numero_serie_equipamento': 'S/N do Equipamento',
-        'problema_original': 'Problema Original',
-        'acao_realizada': 'Ação Realizada',
-        'responsavel': 'Responsável',
-        'data_correcao': 'Data da Correção',
-        'id_equipamento': 'ID do Equipamento',
-        'responsavel_acao': 'Responsável',
-        'id_equipamento_substituto': 'ID do Equip. Substituto',
-        'link_foto_evidencia': 'Evidência (Foto)'
+    ALL_COLUMNS = {
+        # Comuns
+        'data_inspecao': 'Data Inspeção', 'status_geral': 'Status', 'inspetor': 'Inspetor', 'data_proxima_inspecao': 'Próx. Inspeção',
+        'data_servico': 'Data Serviço', 'numero_identificacao': 'ID Equip.', 'tipo_servico': 'Tipo Serviço', 'aprovado_inspecao': 'Status',
+        'plano_de_acao': 'Plano de Ação', 'link_relatorio_pdf': 'Relatório (PDF)', 'id_mangueira': 'ID Mangueira', 'data_proximo_teste': 'Próx. Teste',
+        'link_certificado_pdf': 'Certificado (PDF)', 'data_teste': 'Data Teste', 'numero_serie_equipamento': 'S/N Equip.', 'resultado_final': 'Resultado',
+        'id_abrigo': 'ID Abrigo', 'cliente': 'Cliente', 'local': 'Local', 'itens_json': 'Inventário (JSON)',
+        # Logs
+        'data_acao': 'Data Ação', 'problema_original': 'Problema', 'acao_realizada': 'Ação Realizada', 'responsavel': 'Responsável'
     }
 
-    service_columns = {
-        # Colunas comuns
-        'data_inspecao': 'Data da Inspeção',
-        'status_geral': 'Status Geral',
-        'inspetor': 'Inspetor',
-        'data_proxima_inspecao': 'Próxima Inspeção',
-        # Extintores
-        'data_servico': 'Data do Serviço',
-        'numero_identificacao': 'ID do Equipamento',
-        'tipo_servico': 'Tipo de Serviço',
-        'aprovado_inspecao': 'Status',
-        'plano_de_acao': 'Plano de Ação',
-        'link_relatorio_pdf': 'Relatório (PDF)',
-        # Mangueiras
-        'id_mangueira': 'ID da Mangueira',
-        'data_proximo_teste': 'Próximo Teste',
-        'link_certificado_pdf': 'Certificado (PDF)',
-        # SCBA
-        'data_teste': 'Data do Teste',
-        'numero_serie_equipamento': 'S/N do Equipamento',
-        'resultado_final': 'Resultado Final'
+    SHEET_VIEW_COLUMNS = {
+        EXTINGUISHER_SHEET_NAME: ['data_servico', 'numero_identificacao', 'tipo_servico', 'aprovado_inspecao', 'plano_de_acao', 'link_relatorio_pdf'],
+        HOSE_SHEET_NAME: ['id_mangueira', 'data_inspecao', 'data_proximo_teste', 'status', 'link_certificado_pdf'],
+        SHELTER_SHEET_NAME: ['id_abrigo', 'cliente', 'local', 'itens_json'], # <-- Colunas para Cadastro de Abrigos
+        INSPECTIONS_SHELTER_SHEET_NAME: ['data_inspecao', 'id_abrigo', 'status_geral', 'data_proxima_inspecao'],
+        SCBA_SHEET_NAME: ['numero_serie_equipamento', 'data_teste', 'resultado_final', 'data_validade', 'status_qualidade_ar', 'link_relatorio_pdf'],
+        SCBA_VISUAL_INSPECTIONS_SHEET_NAME: ['data_inspecao', 'numero_serie_equipamento', 'status_geral', 'data_proxima_inspecao'],
+        LOG_ACTIONS: ['data_acao', 'id_equipamento', 'problema_original', 'acao_realizada', 'responsavel_acao'],
+        LOG_SHELTER_SHEET_NAME: ['data_acao', 'id_abrigo', 'problema_original', 'acao_realizada', 'responsavel'],
+        LOG_SCBA_SHEET_NAME: ['data_acao', 'numero_serie_equipamento', 'problema_original', 'acao_realizada', 'responsavel']
     }
 
-    if is_log:
-        display_columns = log_columns
-    else:
-        display_columns = service_columns
+    # Pega a lista de colunas para a planilha atual
+    cols_to_show = SHEET_VIEW_COLUMNS.get(sheet_name, df.columns.tolist())
+    
+    # Filtra o DataFrame para mostrar apenas as colunas desejadas que realmente existem
+    final_cols = [col for col in cols_to_show if col in df.columns]
+    
+    # Renomeia as colunas para nomes amigáveis
+    renamed_df = df[final_cols].rename(columns=ALL_COLUMNS)
+    
+    return renamed_df
 
-    cols_to_display = [col for col in display_columns.keys() if col in df.columns]
-    return df[cols_to_display].rename(columns=display_columns)
-
-def display_formatted_dataframe(sheet_name, is_log=False):
-    """Função helper para carregar, formatar e exibir um DataFrame."""
+def display_formatted_dataframe(sheet_name):
+    """Função helper para carregar, formatar e exibir um DataFrame com links clicáveis."""
     df = load_sheet_data(sheet_name)
     
     if df.empty:
         st.info("Nenhum registro encontrado.")
         return
     
-    df_formatted = format_dataframe_for_display(df, is_log)
-    st.dataframe(df_formatted, use_container_width=True, hide_index=True)
+    df_formatted = format_dataframe_for_display(df, sheet_name)
 
+    column_config = {}
+    for col_name in df_formatted.columns:
+        if "PDF" in col_name or "Certificado" in col_name:
+            column_config[col_name] = st.column_config.LinkColumn(
+                col_name, display_text="🔗 Ver Documento"
+            )
+
+    st.dataframe(
+        df_formatted,
+        use_container_width=True,
+        hide_index=True,
+        column_config=column_config
+    )
+    
 def show_history_page():
     st.title("Histórico e Logs do Sistema")
     st.info("Consulte o histórico de registros e ações para todos os equipamentos do sistema.")
@@ -110,9 +112,9 @@ def show_history_page():
         st.header("Logs de Ações Corretivas")
         subtabs = st.tabs(["🔥 Extintores", "🧯 Abrigos", "💨 C. Autônomo"])
 
-        with subtabs[0]: display_formatted_dataframe(LOG_ACTIONS, is_log=True)
-        with subtabs[1]: display_formatted_dataframe(LOG_SHELTER_SHEET_NAME, is_log=True)
-        with subtabs[2]: display_formatted_dataframe(LOG_SCBA_SHEET_NAME, is_log=True)
+        with subtabs[0]: display_formatted_dataframe(LOG_ACTIONS)
+        with subtabs[1]: display_formatted_dataframe(LOG_SHELTER_SHEET_NAME)
+        with subtabs[2]: display_formatted_dataframe(LOG_SCBA_SHEET_NAME)
 
 if not show_login_page(): 
     st.stop()

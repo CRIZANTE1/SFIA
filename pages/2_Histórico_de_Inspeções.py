@@ -11,7 +11,7 @@ from operations.history import load_sheet_data
 from auth.login_page import show_login_page, show_user_header, show_logout_button
 from auth.auth_utils import is_admin_user
 from operations.demo_page import show_demo_page
-from reports.monthly_report_ui import show_monthly_report_interface
+
 
 
 def format_dataframe_for_display(df, is_log=False):
@@ -62,16 +62,7 @@ def format_dataframe_for_display(df, is_log=False):
 def show_history_page():
     st.title("Histórico e Logs do Sistema")
     st.markdown("---")
-    st.session_state.setdefault('show_report_generator', False)
-    if st.toggle("📄 Gerar Relatório Mensal de Inspeções", key='report_toggle'):
-        st.session_state.show_report_generator = True
-    else:
-        st.session_state.show_report_generator = False
-
-    if st.session_state.show_report_generator:
-        with st.container(border=True):
-            show_monthly_report_interface()
-    st.markdown("---")
+    
     
     if st.button("Limpar Cache e Recarregar Dados"):
         st.cache_data.clear()

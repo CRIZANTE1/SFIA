@@ -17,7 +17,6 @@ from gdrive.config import (
     LOG_ACTIONS, LOG_SHELTER_SHEET_NAME, LOG_SCBA_SHEET_NAME
 )
 
-
 def format_dataframe_for_display(df, is_log=False):
     """
     Prepara o DataFrame para exibição, renomeando colunas e formatando.
@@ -27,43 +26,61 @@ def format_dataframe_for_display(df, is_log=False):
     
     df = df.copy()
 
+    log_columns = {
+        'data_acao': 'Data da Ação',
+        'id_abrigo': 'ID do Abrigo',
+        'numero_serie_equipamento': 'S/N do Equipamento',
+        'problema_original': 'Problema Original',
+        'acao_realizada': 'Ação Realizada',
+        'responsavel': 'Responsável',
+        'data_correcao': 'Data da Correção',
+        'id_equipamento': 'ID do Equipamento',
+        'responsavel_acao': 'Responsável',
+        'id_equipamento_substituto': 'ID do Equip. Substituto',
+        'link_foto_evidencia': 'Evidência (Foto)'
+    }
+
+    service_columns = {
+        # Colunas comuns
+        'data_inspecao': 'Data da Inspeção',
+        'status_geral': 'Status Geral',
+        'inspetor': 'Inspetor',
+        'data_proxima_inspecao': 'Próxima Inspeção',
+        # Extintores
+        'data_servico': 'Data do Serviço',
+        'numero_identificacao': 'ID do Equipamento',
+        'tipo_servico': 'Tipo de Serviço',
+        'aprovado_inspecao': 'Status',
+        'plano_de_acao': 'Plano de Ação',
+        'link_relatorio_pdf': 'Relatório (PDF)',
+        # Mangueiras
+        'id_mangueira': 'ID da Mangueira',
+        'data_proximo_teste': 'Próximo Teste',
+        'link_certificado_pdf': 'Certificado (PDF)',
+        # SCBA
+        'data_teste': 'Data do Teste',
+        'numero_serie_equipamento': 'S/N do Equipamento',
+        'resultado_final': 'Resultado Final'
+    }
+
     if is_log:
-        if 'data_correcao' in df.columns:
-            df['data_correcao'] = pd.to_datetime(df['data_correcao'], errors='coerce').dt.strftime('%d/%m/%Y')
-        
-        if 'link_foto_evidencia' not in df.columns:
-            df['link_foto_evidencia'] = None
-        
-        display_columns = {
-            'data_correcao': 'Data da Correção',
-            'id_equipamento': 'ID do Equipamento',
-            'problema_original': 'Problema Original',
-            'acao_realizada': 'Ação Realizada',
-            'responsavel_acao': 'Responsável',
-            'id_equipamento_substituto': 'ID do Equip. Substituto',
-            'link_foto_evidencia': 'Evidência (Foto)'
-        }
+        display_columns = log_columns
     else:
-        # Formatação para o Histórico de Serviços
-        if 'link_relatorio_pdf' not in df.columns:
-            df['link_relatorio_pdf'] = None
-        df['link_relatorio_pdf'] = df['link_relatorio_pdf'].fillna("N/A")
-        
-        display_columns = {
-            'data_servico': 'Data do Serviço',
-            'numero_identificacao': 'ID do Equipamento',
-            'numero_selo_inmetro': 'Selo INMETRO',
-            'tipo_servico': 'Tipo de Serviço',
-            'tipo_agente': 'Agente Extintor',
-            'capacidade': 'Capacidade',
-            'aprovado_inspecao': 'Status',
-            'plano_de_acao': 'Plano de Ação',
-            'link_relatorio_pdf': 'Relatório (PDF)'
-        }
+        display_columns = service_columns
 
     cols_to_display = [col for col in display_columns.keys() if col in df.columns]
     return df[cols_to_display].rename(columns=display_columns)
 
+def display_formatted_dataframe(sheet_name, is_log=False):
+    """Função helper para carregar, converter, formatar e exibir um DataFrame."""
+    data_raw = load_sheet_data(sheet_name)
+    if not data_raw or len(data_raw) < 2:
+        st.info("Nenhum registro encontrado.")
+        return
+    
+    df = pd.DataFrame(data_raw[1:], columns=data_raw[0])
+    df_formatted = format_dataframe_for_display(df, is_log)
+    st.dataframe(df_formatted, use_container_width=True, hide_index=True)
 
 def show_history_page():
     st.title("Histórico e Logs do Sistema")
@@ -75,59 +92,27 @@ def show_history_page():
 
     tab_registros, tab_logs = st.tabs(["📜 Histórico de Registros", "📖 Logs de Ações Corretivas"])
 
-    # --- ABA 1: HISTÓRICO DE REGISTROS ---
     with tab_registros:
         st.header("Histórico de Registros por Tipo de Equipamento")
-        
-        # Cria sub-abas para cada tipo de equipamento
-        subtab_ext, subtab_mang, subtab_abrigo_cad, subtab_abrigo_insp, subtab_scba_teste, subtab_scba_insp = st.tabs([
+        subtabs = st.tabs([
             "🔥 Extintores", "💧 Mangueiras", "🧯 Cadastro de Abrigos",
             "📋 Inspeções de Abrigos", "💨 Testes de SCBA", "🩺 Inspeções de SCBA"
         ])
 
-        with subtab_ext:
-            df = load_sheet_data(EXTINGUISHER_SHEET_NAME)
-            st.dataframe(df, use_container_width=True, hide_index=True)
-
-        with subtab_mang:
-            df = load_sheet_data(HOSE_SHEET_NAME)
-            st.dataframe(df, use_container_width=True, hide_index=True)
-            
-        with subtab_abrigo_cad:
-            df = load_sheet_data(SHELTER_SHEET_NAME)
-            st.dataframe(df, use_container_width=True, hide_index=True)
-
-        with subtab_abrigo_insp:
-            df = load_sheet_data(INSPECTIONS_SHELTER_SHEET_NAME)
-            st.dataframe(df, use_container_width=True, hide_index=True)
-
-        with subtab_scba_teste:
-            df = load_sheet_data(SCBA_SHEET_NAME)
-            st.dataframe(df, use_container_width=True, hide_index=True)
-
-        with subtab_scba_insp:
-            df = load_sheet_data(SCBA_VISUAL_INSPECTIONS_SHEET_NAME)
-            st.dataframe(df, use_container_width=True, hide_index=True)
+        with subtabs[0]: display_formatted_dataframe(EXTINGUISHER_SHEET_NAME)
+        with subtabs[1]: display_formatted_dataframe(HOSE_SHEET_NAME)
+        with subtabs[2]: display_formatted_dataframe(SHELTER_SHEET_NAME)
+        with subtabs[3]: display_formatted_dataframe(INSPECTIONS_SHELTER_SHEET_NAME)
+        with subtabs[4]: display_formatted_dataframe(SCBA_SHEET_NAME)
+        with subtabs[5]: display_formatted_dataframe(SCBA_VISUAL_INSPECTIONS_SHEET_NAME)
 
     with tab_logs:
         st.header("Logs de Ações Corretivas")
-        
-        subtab_log_ext, subtab_log_abrigo, subtab_log_scba = st.tabs([
-            "🔥 Extintores", "🧯 Abrigos", "💨 C. Autônomo"
-        ])
+        subtabs = st.tabs(["🔥 Extintores", "🧯 Abrigos", "💨 C. Autônomo"])
 
-        with subtab_log_ext:
-            df = load_sheet_data(LOG_ACTIONS)
-            st.dataframe(df, use_container_width=True, hide_index=True)
-
-        with subtab_log_abrigo:
-            df = load_sheet_data(LOG_SHELTER_SHEET_NAME)
-            st.dataframe(df, use_container_width=True, hide_index=True)
-        
-        with subtab_log_scba:
-            df = load_sheet_data(LOG_SCBA_SHEET_NAME)
-            st.dataframe(df, use_container_width=True, hide_index=True)
-
+        with subtabs[0]: display_formatted_dataframe(LOG_ACTIONS, is_log=True)
+        with subtabs[1]: display_formatted_dataframe(LOG_SHELTER_SHEET_NAME, is_log=True)
+        with subtabs[2]: display_formatted_dataframe(LOG_SCBA_SHEET_NAME, is_log=True)
 
 if not show_login_page(): 
     st.stop()

@@ -17,12 +17,16 @@ from gdrive.config import (
     LOG_ACTIONS, LOG_SHELTER_SHEET_NAME, LOG_SCBA_SHEET_NAME
 )
 
-def format_dataframe_for_display(df, is_log=False):
-    """
-    Prepara o DataFrame para exibição, renomeando colunas e formatando.
-    """
+def display_formatted_dataframe(sheet_name, is_log=False):
+    """Função helper para carregar, formatar e exibir um DataFrame."""
+    df = load_sheet_data(sheet_name)
+    
     if df.empty:
-        return df
+        st.info("Nenhum registro encontrado.")
+        return
+    
+    df_formatted = format_dataframe_for_display(df, is_log)
+    st.dataframe(df_formatted, use_container_width=True, hide_index=True)
     
     df = df.copy()
 

@@ -17,16 +17,12 @@ from gdrive.config import (
     LOG_ACTIONS, LOG_SHELTER_SHEET_NAME, LOG_SCBA_SHEET_NAME
 )
 
-def display_formatted_dataframe(sheet_name, is_log=False):
-    """Função helper para carregar, formatar e exibir um DataFrame."""
-    df = load_sheet_data(sheet_name)
-    
+def format_dataframe_for_display(df, is_log=False):
+    """
+    Prepara o DataFrame para exibição, renomeando colunas e formatando.
+    """
     if df.empty:
-        st.info("Nenhum registro encontrado.")
-        return
-    
-    df_formatted = format_dataframe_for_display(df, is_log)
-    st.dataframe(df_formatted, use_container_width=True, hide_index=True)
+        return df
     
     df = df.copy()
 
@@ -76,13 +72,13 @@ def display_formatted_dataframe(sheet_name, is_log=False):
     return df[cols_to_display].rename(columns=display_columns)
 
 def display_formatted_dataframe(sheet_name, is_log=False):
-    """Função helper para carregar, converter, formatar e exibir um DataFrame."""
-    data_raw = load_sheet_data(sheet_name)
-    if not data_raw or len(data_raw) < 2:
+    """Função helper para carregar, formatar e exibir um DataFrame."""
+    df = load_sheet_data(sheet_name)
+    
+    if df.empty:
         st.info("Nenhum registro encontrado.")
         return
     
-    df = pd.DataFrame(data_raw[1:], columns=data_raw[0])
     df_formatted = format_dataframe_for_display(df, is_log)
     st.dataframe(df_formatted, use_container_width=True, hide_index=True)
 

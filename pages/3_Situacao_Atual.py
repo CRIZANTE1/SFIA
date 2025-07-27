@@ -382,6 +382,10 @@ def show_dashboard_page():
 
     with tab_extinguishers:
         st.header("Dashboard de Extintores")
+
+        with st.expander("📄 Gerar Relatório Mensal..."):
+            show_monthly_report_interface()
+        st.markdown("---")
         
         df_full_history = load_sheet_data("extintores")
         df_locais = load_sheet_data("locais") 
@@ -433,9 +437,7 @@ def show_dashboard_page():
                         if st.button("✍️ Registrar Ação Corretiva", key=f"action_{row['numero_identificacao']}", use_container_width=True):
                             action_form(row.to_dict(), df_full_history, location)
                             
-        with st.expander("📄 Gerar Relatório Mensal de Inspeção de Extintores"):
-        show_monthly_report_interface()
-        st.markdown("---")                    
+                           
 
     with tab_hoses:
         st.header("Dashboard de Mangueiras de Incêndio")

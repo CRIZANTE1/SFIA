@@ -11,7 +11,11 @@ from operations.history import load_sheet_data
 from auth.login_page import show_login_page, show_user_header, show_logout_button
 from auth.auth_utils import is_admin_user
 from operations.demo_page import show_demo_page
-
+from gdrive.config import (
+    EXTINGUISHER_SHEET_NAME, HOSE_SHEET_NAME, SHELTER_SHEET_NAME,
+    INSPECTIONS_SHELTER_SHEET_NAME, SCBA_SHEET_NAME, SCBA_VISUAL_INSPECTIONS_SHEET_NAME,
+    LOG_ACTIONS, LOG_SHELTER_SHEET_NAME, LOG_SCBA_SHEET_NAME
+)
 
 
 def format_dataframe_for_display(df, is_log=False):
@@ -59,71 +63,72 @@ def format_dataframe_for_display(df, is_log=False):
 
     cols_to_display = [col for col in display_columns.keys() if col in df.columns]
     return df[cols_to_display].rename(columns=display_columns)
+
+
 def show_history_page():
     st.title("Histórico e Logs do Sistema")
-    st.markdown("---")
-    
+    st.info("Consulte o histórico de registros e ações para todos os equipamentos do sistema.")
     
     if st.button("Limpar Cache e Recarregar Dados"):
         st.cache_data.clear()
         st.rerun()
-    
-    # Carrega os dois DataFrames
-    with st.spinner("Carregando histórico completo..."):
-        df_inspections = load_sheet_data("extintores")
-        df_action_log = load_sheet_data("log_acoes")
 
-    # Seção do Histórico de Serviços
-    st.header("Histórico de Serviços Realizados")
-    if df_inspections.empty:
-        st.warning("Ainda não há registros de inspeção no histórico.")
-    else:
-        df_inspections['data_servico_dt'] = pd.to_datetime(df_inspections['data_servico'], errors='coerce')
-        df_inspections.dropna(subset=['data_servico_dt'], inplace=True)
+    tab_registros, tab_logs = st.tabs(["📜 Histórico de Registros", "📖 Logs de Ações Corretivas"])
+
+    # --- ABA 1: HISTÓRICO DE REGISTROS ---
+    with tab_registros:
+        st.header("Histórico de Registros por Tipo de Equipamento")
         
-        st.subheader("Filtrar Histórico de Serviços")
-        available_years = sorted(df_inspections['data_servico_dt'].dt.year.unique(), reverse=True)
-        col1, col2 = st.columns(2)
-        with col1:
-            selected_year = st.selectbox("Filtrar por Ano:", ["Todos os Anos"] + available_years, key="year_filter")
-        with col2:
-            search_id = st.text_input("Buscar por ID do Equipamento:", key="id_search")
+        # Cria sub-abas para cada tipo de equipamento
+        subtab_ext, subtab_mang, subtab_abrigo_cad, subtab_abrigo_insp, subtab_scba_teste, subtab_scba_insp = st.tabs([
+            "🔥 Extintores", "💧 Mangueiras", "🧯 Cadastro de Abrigos",
+            "📋 Inspeções de Abrigos", "💨 Testes de SCBA", "🩺 Inspeções de SCBA"
+        ])
 
-        filtered_df = df_inspections
-        if selected_year != "Todos os Anos":
-            filtered_df = filtered_df[filtered_df['data_servico_dt'].dt.year == selected_year]
-        if search_id:
-            # Adicionado case=False para busca não sensível a maiúsculas/minúsculas
-            filtered_df = filtered_df[filtered_df['numero_identificacao'].astype(str).str.contains(search_id, case=False, na=False)]
+        with subtab_ext:
+            df = load_sheet_data(EXTINGUISHER_SHEET_NAME)
+            st.dataframe(df, use_container_width=True, hide_index=True)
 
-        if filtered_df.empty:
-            st.warning("Nenhum registro encontrado com os filtros selecionados.")
-        else:
-            display_df = format_dataframe_for_display(filtered_df, is_log=False)
-            st.dataframe(display_df, column_config={"Relatório (PDF)": st.column_config.LinkColumn("Relatório (PDF)", display_text="🔗 Ver")}, hide_index=True, use_container_width=True)
+        with subtab_mang:
+            df = load_sheet_data(HOSE_SHEET_NAME)
+            st.dataframe(df, use_container_width=True, hide_index=True)
+            
+        with subtab_abrigo_cad:
+            df = load_sheet_data(SHELTER_SHEET_NAME)
+            st.dataframe(df, use_container_width=True, hide_index=True)
 
-    st.markdown("---")
+        with subtab_abrigo_insp:
+            df = load_sheet_data(INSPECTIONS_SHELTER_SHEET_NAME)
+            st.dataframe(df, use_container_width=True, hide_index=True)
 
-    with st.expander("📖 Ver Log de Ações Corretivas", expanded=False):
-        st.header("Log de Ações Corretivas")
-        if df_action_log.empty:
-            st.info("Nenhuma ação corretiva foi registrada ainda.")
-        else:
-            log_display_df = format_dataframe_for_display(df_action_log, is_log=True)
-            st.dataframe(
-                log_display_df, 
-                column_config={
-                    "Evidência (Foto)": st.column_config.LinkColumn(
-                        "Evidência (Foto)", 
-                        display_text="📷 Ver Foto", # O texto que aparecerá no link
-                        help="Clique para abrir a foto de evidência em uma nova aba"
-                    )
-                },
-                hide_index=True,  
-                use_container_width=True
-            )
+        with subtab_scba_teste:
+            df = load_sheet_data(SCBA_SHEET_NAME)
+            st.dataframe(df, use_container_width=True, hide_index=True)
 
-# --- Boilerplate de Autenticação ---
+        with subtab_scba_insp:
+            df = load_sheet_data(SCBA_VISUAL_INSPECTIONS_SHEET_NAME)
+            st.dataframe(df, use_container_width=True, hide_index=True)
+
+    with tab_logs:
+        st.header("Logs de Ações Corretivas")
+        
+        subtab_log_ext, subtab_log_abrigo, subtab_log_scba = st.tabs([
+            "🔥 Extintores", "🧯 Abrigos", "💨 C. Autônomo"
+        ])
+
+        with subtab_log_ext:
+            df = load_sheet_data(LOG_ACTIONS)
+            st.dataframe(df, use_container_width=True, hide_index=True)
+
+        with subtab_log_abrigo:
+            df = load_sheet_data(LOG_SHELTER_SHEET_NAME)
+            st.dataframe(df, use_container_width=True, hide_index=True)
+        
+        with subtab_log_scba:
+            df = load_sheet_data(LOG_SCBA_SHEET_NAME)
+            st.dataframe(df, use_container_width=True, hide_index=True)
+
+
 if not show_login_page(): 
     st.stop()
 show_user_header()

@@ -364,11 +364,7 @@ def action_form(item, df_full_history, location):
 
 def show_dashboard_page():
     st.title("Situação Atual dos Equipamentos de Emergência")
-    
-    with st.expander("📄 Gerar Relatório Mensal de Inspeção de Extintores"):
-        show_monthly_report_interface()
-    st.markdown("---")
-    
+      
     if st.button("Limpar Cache e Recarregar Dados"):
         st.cache_data.clear()
         st.rerun()
@@ -436,6 +432,10 @@ def show_dashboard_page():
                         st.markdown("---")
                         if st.button("✍️ Registrar Ação Corretiva", key=f"action_{row['numero_identificacao']}", use_container_width=True):
                             action_form(row.to_dict(), df_full_history, location)
+                            
+        with st.expander("📄 Gerar Relatório Mensal de Inspeção de Extintores"):
+        show_monthly_report_interface()
+        st.markdown("---")                    
 
     with tab_hoses:
         st.header("Dashboard de Mangueiras de Incêndio")

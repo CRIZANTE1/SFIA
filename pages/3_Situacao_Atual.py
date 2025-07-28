@@ -21,6 +21,7 @@ from operations.corrective_actions import save_corrective_action
 from reports.reports_pdf import generate_shelters_html 
 from operations.photo_operations import upload_evidence_photo
 from reports.monthly_report_ui import show_monthly_report_interface
+from operations.scba_operations import save_scba_visual_inspection, save_scba_action_log
 
 
 set_page_config()

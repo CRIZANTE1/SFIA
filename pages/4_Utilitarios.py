@@ -190,7 +190,7 @@ def show_utilities_page():
                             st.session_state.pop('suggested_ids', None)
                             st.session_state.pop('selected_shipment_ids', None)
                             st.cache_data.clear()
-                            st.rerun()
+                         
 
 # --- Boilerplate de Autenticação ---
 if not show_login_page():

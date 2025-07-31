@@ -3,27 +3,28 @@ from datetime import date
 from gdrive.gdrive_upload import GoogleDriveUploader
 from gdrive.config import TH_SHIPMENT_LOG_SHEET_NAME
 
-def select_hoses_for_th(df_hoses_raw, df_shipment_log_raw):
+def select_hoses_for_th(df_hoses, df_shipment_log):
     """
     Seleciona aproximadamente metade das mangueiras mais antigas que
     ainda não foram enviadas para teste no ano corrente.
+    AGORA ACEITA DATAFRAMES DIRETAMENTE.
     """
-    if not df_hoses_raw or len(df_hoses_raw) < 2:
+    # A verificação agora usa .empty, que é a forma correta
+    if df_hoses.empty:
         return pd.DataFrame()
 
-    df_hoses = pd.DataFrame(df_hoses_raw[1:], columns=df_hoses_raw[0])
     # Garante que a coluna de fabricação exista e a converte para data
-    if 'ano_fabricacao' not in df_hoses.columns: return pd.DataFrame()
+    if 'ano_fabricacao' not in df_hoses.columns:
+        return pd.DataFrame()
     df_hoses['ano_fabricacao'] = pd.to_numeric(df_hoses['ano_fabricacao'], errors='coerce')
     df_hoses = df_hoses.dropna(subset=['ano_fabricacao'])
 
     # Filtra mangueiras já enviadas este ano
     current_year = date.today().year
     hoses_sent_this_year = []
-    if df_shipment_log_raw and len(df_shipment_log_raw) > 1:
-        df_log = pd.DataFrame(df_shipment_log_raw[1:], columns=df_shipment_log_raw[0])
-        df_log['ano_remessa'] = pd.to_numeric(df_log['ano_remessa'], errors='coerce')
-        hoses_sent_this_year = df_log[df_log['ano_remessa'] == current_year]['id_mangueira'].tolist()
+    if not df_shipment_log.empty:
+        df_shipment_log['ano_remessa'] = pd.to_numeric(df_shipment_log['ano_remessa'], errors='coerce')
+        hoses_sent_this_year = df_shipment_log[df_shipment_log['ano_remessa'] == current_year]['id_mangueira'].tolist()
 
     eligible_hoses = df_hoses[~df_hoses['id_mangueira'].isin(hoses_sent_this_year)]
     
@@ -36,7 +37,6 @@ def select_hoses_for_th(df_hoses_raw, df_shipment_log_raw):
         num_to_select = 1 # Garante que pelo menos uma seja selecionada se houver alguma elegível
         
     return eligible_hoses.head(num_to_select)
-
 
 def generate_shipment_html(df_selected_hoses, client_name, responsible_name, bulletin_number):
     """

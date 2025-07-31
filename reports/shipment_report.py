@@ -62,36 +62,47 @@ def select_hoses_for_th(df_hoses, df_shipment_log):
     
 def generate_shipment_html(df_selected_items, item_type, remetente_info, destinatario_info, bulletin_number):
     """
-    Gera o HTML para um Boletim de Remessa genérico (DANFE informal).
+    Gera o HTML para um Boletim de Remessa genérico com cálculo de valor dinâmico.
     """
     today = date.today().strftime('%d/%m/%Y')
-    
-    styles = """
-    <style>
-        @media print { body { -webkit-print-color-adjust: exact; } }
-        body { font-family: sans-serif; font-size: 10px; margin: 0; padding: 20px; }
-        .container { border: 1px solid #000; padding: 10px; }
-        .header { display: flex; border-bottom: 1px solid #000; padding-bottom: 10px; }
-        .header .logo { width: 40%; }
-        .header .title-box { width: 60%; border-left: 1px solid #000; text-align: center; padding-left: 10px; }
-        .header h1 { margin: 0; font-size: 14px; }
-        .header h2 { margin: 5px 0; font-size: 18px; }
-        .info-section { border: 1px solid #000; margin-top: 10px; }
-        .info-section .title { background-color: #eee; font-weight: bold; padding: 3px; border-bottom: 1px solid #000; }
-        .info-section .content { display: flex; flex-wrap: wrap; }
-        .info-section .field { padding: 3px; border-right: 1px solid #ccc; flex-grow: 1; }
-        .info-section .label { font-size: 8px; color: #555; display: block; }
-        .info-section .value { font-size: 12px; font-weight: bold; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 9px; }
-        th, td { border: 1px solid #000; padding: 4px; text-align: left; }
-        th { background-color: #eee; text-align: center; }
-        .total-row td { font-weight: bold; }
-        .footer { margin-top: 20px; font-size: 9px; }
-    </style>
-    """
+    styles = """... (Estilos CSS da DANFE, sem alterações) ..."""
     
     total_value = 0
     item_rows_html = ""
+
+    for _, row in df_selected_items.iterrows():
+        unit_value = 0 # Valor padrão
+        if item_type == 'Mangueiras':
+            item_id = row['id_mangueira']
+            description = f"MANGUEIRA DE INCÊNDIO PARA TESTE HIDROSTÁTICO - TIPO {row.get('tipo', 'N/A')} - {row.get('diametro', 'N/A')}"
+            unit_value = 3000
+        
+        elif item_type == 'Extintores':
+            item_id = row['numero_identificacao']
+            description = f"EXTINTOR DE INCÊNDIO PARA MANUTENÇÃO - TIPO {row.get('tipo_agente', 'N/A')} - {row.get('capacidade', 'N/A')}"
+            
+            # Lógica de Preços para Extintores
+            capacidade = str(row.get('capacidade', '')).lower()
+            agente = str(row.get('tipo_agente', '')).lower()
+
+            if '50kg' in capacidade:
+                unit_value = 3000.00
+            elif '12kg' in capacidade:
+                unit_value = 293.00
+            elif 'abc' in agente:
+                unit_value = 600.00
+            elif 'co2' in agente:
+                unit_value = 300.00
+            else:
+                unit_value = 150.00 # Valor padrão para outros extintores
+            
+        total_value += unit_value
+        item_rows_html += f"""
+        <tr>
+            <td>{item_id}</td><td>{description}</td><td>N/A</td><td>N/A</td>
+            <td>UN</td><td>1</td><td>{unit_value:,.2f}</td><td>{unit_value:,.2f}</td>
+        </tr>
+        """
 
     for _, row in df_selected_items.iterrows():
         if item_type == 'Mangueiras':

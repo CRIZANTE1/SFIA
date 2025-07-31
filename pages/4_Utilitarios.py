@@ -169,24 +169,33 @@ def show_utilities_page():
                         with st.spinner("Gerando boletim e registrando envio..."):
                             destinatario_info = {
                                 "razao_social": dest_razao_social, "cnpj": dest_cnpj, "endereco": dest_endereco,
-                                "cidade": dest_cidade, "uf": dest_uf, "fone": dest_fone, "responsavel": get_user_display_name()
+                                "cidade": dest_cidade, "uf": dest_uf, "fone": dest_fone,
+                                "responsavel": get_user_display_name()
                             }
-                            report_html = generate_shipment_html(df_selected, item_type, remetente_info, destinatario_info, bulletin_number)
+                            
+                            # 1. Gera o PDF diretamente em bytes
+                            pdf_bytes = generate_shipment_html_and_pdf(
+                                df_selected_items=df_selected, 
+                                item_type=item_type, 
+                                remetente_info=remetente_info, 
+                                destinatario_info=destinatario_info, 
+                                bulletin_number=bulletin_number
+                            )
+                            
+                            # 2. Salva o log na planilha
                             log_shipment(df_selected, item_type, bulletin_number)
-                            js_code = f"""
-                                const reportHtml = {json.dumps(report_html)};
-                                const printWindow = window.open('', '_blank');
-                                if (printWindow) {{
-                                    printWindow.document.write(reportHtml);
-                                    printWindow.document.close();
-                                    printWindow.focus();
-                                    setTimeout(() => {{ printWindow.print(); printWindow.close(); }}, 500);
-                                }} else {{
-                                    alert('Por favor, desabilite o bloqueador de pop-ups.');
-                                }}
-                            """
-                            streamlit_js_eval(js_expressions=js_code, key="print_util_shipment_js")
+                            
                             st.success("Boletim de remessa gerado e log de envio registrado!")
+                            
+                            # 3. Oferece o botão de download para o PDF
+                            st.download_button(
+                                label="📥 Baixar Boletim de Remessa (PDF)",
+                                data=pdf_bytes,
+                                file_name=f"Boletim_Remessa_{bulletin_number}.pdf",
+                                mime="application/pdf"
+                            )
+                            
+                            # Limpa os estados relevantes
                             st.session_state.pop('suggested_ids', None)
                             st.session_state.pop('selected_shipment_ids', None)
                             st.cache_data.clear()

@@ -17,6 +17,7 @@ SCBA_SHEET_NAME = "conjuntos_autonomos"
 SCBA_VISUAL_INSPECTIONS_SHEET_NAME = "inspecoes_scba"
 LOG_SCBA_SHEET_NAME = "log_scba"
 TH_SHIPMENT_LOG_SHEET_NAME = "log_remessas_th"
+EXTINGUISHER_SHIPMENT_LOG_SHEET_NAME = "log_remessas_extintores"
 
 def get_credentials_dict():
     """Retorna as credenciais do serviço do Google, seja do arquivo local ou do Streamlit Cloud."""

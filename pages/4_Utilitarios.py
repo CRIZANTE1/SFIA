@@ -161,7 +161,6 @@ def show_utilities_page():
                     dest_cidade = col1.text_input("Município", "SAO PAULO")
                     dest_uf = col2.text_input("UF", "SP")
                     dest_fone = col3.text_input("Telefone", "1135918267")
-                    dest_ie = st.text_input("Inscrição Estadual", "492451258119")
                     bulletin_number = st.text_input("Número do Boletim/OS", f"REM-{date.today().strftime('%Y%m%d')}")
 
                     submitted = st.form_submit_button("📄 Gerar e Registrar Boletim de Remessa", type="primary")

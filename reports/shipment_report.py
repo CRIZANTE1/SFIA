@@ -208,7 +208,7 @@ def generate_shipment_html(df_selected_items, item_type, remetente_info, destina
     </div>
     """
     
-     html += f"""
+    html += f"""
     <div class="info-section">
         <div class="title">DESTINATÁRIO / REMETENTE</div>
         <div class="content">

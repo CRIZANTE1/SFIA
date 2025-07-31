@@ -173,7 +173,18 @@ def show_utilities_page():
                             }
                             report_html = generate_shipment_html(df_selected, item_type, remetente_info, destinatario_info, bulletin_number)
                             log_shipment(df_selected, item_type, bulletin_number)
-                            js_code = f"""...""" # Código de impressão
+                            js_code = f"""
+                                const reportHtml = {json.dumps(report_html)};
+                                const printWindow = window.open('', '_blank');
+                                if (printWindow) {{
+                                    printWindow.document.write(reportHtml);
+                                    printWindow.document.close();
+                                    printWindow.focus();
+                                    setTimeout(() => {{ printWindow.print(); printWindow.close(); }}, 500);
+                                }} else {{
+                                    alert('Por favor, desabilite o bloqueador de pop-ups.');
+                                }}
+                            """
                             streamlit_js_eval(js_expressions=js_code, key="print_util_shipment_js")
                             st.success("Boletim de remessa gerado e log de envio registrado!")
                             # Limpa os estados relevantes

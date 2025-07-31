@@ -15,7 +15,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from auth.login_page import show_login_page, show_user_header, show_logout_button
 from auth.auth_utils import is_admin_user, get_user_display_name
 from operations.history import load_sheet_data
-from reports.shipment_report import generate_shipment_html, log_shipment, select_extinguishers_for_maintenance
+from reports.shipment_report import generate_shipment_html, log_shipment, select_extinguishers_for_maintenance, select_hoses_for_th
 from gdrive.config import EXTINGUISHER_SHEET_NAME, HOSE_SHEET_NAME, EXTINGUISHER_SHIPMENT_LOG_SHEET_NAME, TH_SHIPMENT_LOG_SHEET_NAME
 from operations.demo_page import show_demo_page
 from config.page_config import set_page_config 
@@ -90,7 +90,7 @@ def show_utilities_page():
 
     with tab_shipment:
         st.header("Gerar Boletim de Remessa para Manutenção/Teste")
-        st.info("Selecione o tipo de equipamento e escolha os itens a serem enviados para gerar um boletim de remessa (DANFE informal).")
+        st.info("Selecione o tipo de equipamento, use a sugestão automática ou escolha manualmente os itens para enviar.")
 
         item_type = st.selectbox("Selecione o Tipo de Equipamento", ["Extintores", "Mangueiras"])
 
@@ -100,45 +100,61 @@ def show_utilities_page():
             id_column = 'numero_identificacao'
         elif item_type == 'Mangueiras':
             df_all_items = load_sheet_data(HOSE_SHEET_NAME)
-            df_log_items = load_sheet_data(TH_SHIPMENT_LOG_SHEET_NAME) 
+            df_log_items = load_sheet_data(TH_SHIPMENT_LOG_SHEET_NAME)
             id_column = 'id_mangueira'
         else:
             df_all_items = pd.DataFrame()
             df_log_items = pd.DataFrame()
             id_column = ''
 
-        # Botão de sugestão para Extintores
+        st.subheader("Sugestão Automática")
         if item_type == 'Extintores':
-            if st.button("Sugerir Extintores para Manutenção"):
-                suggested_ext = select_extinguishers_for_maintenance(df_all_items, df_log_items)
-                if not suggested_ext.empty:
-                    st.session_state['suggested_ids'] = suggested_ext['numero_identificacao'].tolist()
-                    st.info(f"{len(st.session_state['suggested_ids'])} extintores com manutenção mais antiga foram pré-selecionados abaixo.")
-                    # Força um rerun para o multiselect atualizar com o default
+            if st.button("Sugerir ~50% dos Extintores (manutenção mais antiga)"):
+                suggested_items = select_extinguishers_for_maintenance(df_all_items, df_log_items)
+                if not suggested_items.empty:
+                    st.session_state['suggested_ids'] = suggested_items[id_column].tolist()
+                    st.info(f"{len(st.session_state['suggested_ids'])} extintores sugeridos e pré-selecionados abaixo.")
                     st.rerun()
                 else:
-                    st.success("Nenhum extintor elegível para manutenção encontrado.")
+                    st.success("Nenhum extintor elegível encontrado.")
 
-        # A verificação agora funciona, pois df_all_items sempre existe
+        elif item_type == 'Mangueiras':
+            if st.button("Sugerir ~50% das Mangueiras (mais antigas)"):
+                suggested_items = select_hoses_for_th(df_all_items, df_log_items)
+                if not suggested_items.empty:
+                    st.session_state['suggested_ids'] = suggested_items[id_column].tolist()
+                    st.info(f"{len(st.session_state['suggested_ids'])} mangueiras sugeridas e pré-selecionadas abaixo.")
+                    st.rerun()
+                else:
+                    st.success("Nenhuma mangueira elegível encontrada.")
+        
+        st.markdown("---")
+
+        # --- Seleção Manual e Geração do Boletim ---
+        st.subheader("Seleção de Itens e Geração do Boletim")
         if df_all_items.empty:
-            st.warning(f"Nenhum registro de {item_type.lower()} encontrado.")
+            st.warning(f"Nenhum registro de {item_type.lower()} encontrado para selecionar.")
         else:
             df_latest = df_all_items.sort_values(by=df_all_items.columns[0], ascending=False).drop_duplicates(subset=[id_column], keep='first')
-            
             options = df_latest[id_column].tolist()
             
-            # Usa a sugestão do session_state, se existir
             default_selection = st.session_state.get('suggested_ids', [])
-            selected_ids = st.multiselect(f"Selecione os IDs dos {item_type} para a remessa:", options, default=default_selection)
+            selected_ids = st.multiselect(f"Selecione ou edite os IDs dos {item_type} para a remessa:", options, default=default_selection)
 
             if selected_ids:
-                # Limpa a sugestão após ser usada
+                # Limpa a sugestão do estado da sessão assim que o usuário interage
                 if 'suggested_ids' in st.session_state:
                     del st.session_state['suggested_ids']
 
                 df_selected = df_latest[df_latest[id_column].isin(selected_ids)]
                 st.write(f"**{len(df_selected)} {item_type} selecionados:**")
-                st.dataframe(df_selected[[id_column] + [col for col in ['tipo_agente', 'capacidade', 'tipo', 'diametro'] if col in df_selected.columns]], use_container_width=True)
+                # Mostra colunas relevantes para cada tipo de equipamento
+                display_cols = [id_column]
+                if item_type == 'Extintores':
+                    display_cols.extend([col for col in ['tipo_agente', 'capacidade', 'data_servico'] if col in df_selected.columns])
+                elif item_type == 'Mangueiras':
+                    display_cols.extend([col for col in ['tipo', 'diametro', 'ano_fabricacao'] if col in df_selected.columns])
+                st.dataframe(df_selected[display_cols], use_container_width=True)
 
                 st.markdown("---")
                 st.subheader("Dados da Remessa")

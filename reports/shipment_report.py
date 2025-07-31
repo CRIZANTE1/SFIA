@@ -29,6 +29,35 @@ def log_shipment(df_selected_items, item_type, bulletin_number):
         ]
         uploader.append_data_to_sheet(sheet_name, data_row)
 
+def select_extinguishers_for_maintenance(df_extinguishers, df_shipment_log):
+    """
+    Seleciona extintores para manutenção com base no serviço mais antigo.
+    """
+    if df_extinguishers.empty:
+        return pd.DataFrame()
+
+    df_extinguishers['data_servico'] = pd.to_datetime(df_extinguishers['data_servico'], errors='coerce')
+    latest_extinguishers = df_extinguishers.sort_values('data_servico', ascending=False).drop_duplicates('numero_identificacao', keep='first')
+
+    current_year = date.today().year
+    sent_this_year = []
+    if not df_shipment_log.empty and 'ano_remessa' in df_shipment_log.columns:
+        df_shipment_log['ano_remessa'] = pd.to_numeric(df_shipment_log['ano_remessa'], errors='coerce')
+        # Garante que a coluna de id existe antes de filtrar
+        if 'numero_identificacao' in df_shipment_log.columns:
+            sent_this_year = df_shipment_log[df_shipment_log['ano_remessa'] == current_year]['numero_identificacao'].tolist()
+
+    eligible = latest_extinguishers[~latest_extinguishers['numero_identificacao'].isin(sent_this_year)]
+    
+    if eligible.empty:
+        return pd.DataFrame()
+
+    eligible = eligible.sort_values(by='data_servico', ascending=True)
+    
+    num_to_select = max(1, len(eligible) // 4)
+        
+    return eligible.head(num_to_select)
+
 def select_hoses_for_th(df_hoses, df_shipment_log):
     """
     Seleciona aproximadamente metade das mangueiras mais antigas que

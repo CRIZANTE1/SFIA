@@ -15,9 +15,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from auth.login_page import show_login_page, show_user_header, show_logout_button
 from auth.auth_utils import is_admin_user, get_user_display_name
 from operations.history import load_sheet_data
-from gdrive.config import EXTINGUISHER_SHEET_NAME, HOSE_SHEET_NAME
-# Importa as funções de relatório e log
-from reports.shipment_report import generate_shipment_html, log_shipment
+from reports.shipment_report import generate_shipment_html, log_shipment, select_extinguishers_for_maintenance
+from gdrive.config import EXTINGUISHER_SHEET_NAME, HOSE_SHEET_NAME, EXTINGUISHER_SHIPMENT_LOG_SHEET_NAME
 from operations.demo_page import show_demo_page
 from config.page_config import set_page_config 
 
@@ -95,14 +94,18 @@ def show_utilities_page():
 
         item_type = st.selectbox("Selecione o Tipo de Equipamento", ["Extintores", "Mangueiras"])
 
-        df_all_items = pd.DataFrame()
-        id_column = ''
+        # ▼▼▼ Adicione este bloco para o botão de sugestão de extintores ▼▼▼
         if item_type == 'Extintores':
-            df_all_items = load_sheet_data(EXTINGUISHER_SHEET_NAME)
-            id_column = 'numero_identificacao'
-        elif item_type == 'Mangueiras':
-            df_all_items = load_sheet_data(HOSE_SHEET_NAME)
-            id_column = 'id_mangueira'
+            if st.button("Sugerir Extintores para Manutenção"):
+                df_ext = load_sheet_data(EXTINGUISHER_SHEET_NAME)
+                df_log = load_sheet_data(EXTINGUISHER_SHIPMENT_LOG_SHEET_NAME)
+                suggested_ext = select_extinguishers_for_maintenance(df_ext, df_log)
+                if not suggested_ext.empty:
+                    # Armazena os IDs sugeridos no session_state para pré-selecionar o multiselect
+                    st.session_state['suggested_ids'] = suggested_ext['numero_identificacao'].tolist()
+                    st.info(f"{len(st.session_state['suggested_ids'])} extintores com manutenção mais antiga foram pré-selecionados abaixo.")
+                else:
+                    st.success("Nenhum extintor elegível para manutenção encontrado.")
 
         if df_all_items.empty:
             st.warning(f"Nenhum registro de {item_type.lower()} encontrado.")

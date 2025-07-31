@@ -14,7 +14,7 @@ from auth.login_page import show_login_page, show_user_header, show_logout_butto
 from auth.auth_utils import is_admin_user, get_user_display_name
 from operations.demo_page import show_demo_page
 from config.page_config import set_page_config 
-from gdrive.config import HOSE_SHEET_NAME, SHELTER_SHEET_NAME, INSPECTIONS_SHELTER_SHEET_NAME, LOG_SHELTER_SHEET_NAME, SCBA_SHEET_NAME, SCBA_VISUAL_INSPECTIONS_SHEET_NAME, TH_SHIPMENT_LOG_SHEET_NAME
+from gdrive.config import HOSE_SHEET_NAME, SHELTER_SHEET_NAME, INSPECTIONS_SHELTER_SHEET_NAME, LOG_SHELTER_SHEET_NAME, SCBA_SHEET_NAME, SCBA_VISUAL_INSPECTIONS_SHEET_NAME
 from reports.reports_pdf import generate_shelters_html
 from operations.shelter_operations import save_shelter_action_log, save_shelter_inspection
 from operations.corrective_actions import save_corrective_action
@@ -22,7 +22,6 @@ from reports.reports_pdf import generate_shelters_html
 from operations.photo_operations import upload_evidence_photo
 from reports.monthly_report_ui import show_monthly_report_interface
 from operations.scba_operations import save_scba_visual_inspection, save_scba_action_log
-from reports.th_shipment_report import select_hoses_for_th, generate_shipment_html, log_th_shipment
 
 set_page_config()
 
@@ -442,87 +441,7 @@ def show_dashboard_page():
 
     with tab_hoses:
         st.header("Dashboard de Mangueiras de Incêndio")
-        
-        with st.expander("🚚 Gerar Remessa para Teste Hidrostático (TH)"):
-            st.info("O sistema selecionará automaticamente ~50% das mangueiras mais antigas que ainda não foram enviadas para teste este ano.")
-            
-            if st.button("Sugerir Mangueiras para Remessa"):
-                # Carrega os dados diretamente como DataFrames
-                df_hoses = load_sheet_data(HOSE_SHEET_NAME)
-                df_log = load_sheet_data(TH_SHIPMENT_LOG_SHEET_NAME)
                 
-                # A função agora lida corretamente com um df_log vazio
-                selected_hoses = select_hoses_for_th(df_hoses, df_log)
-                
-                if selected_hoses.empty:
-                    st.success("🎉 Todas as mangueiras elegíveis já foram enviadas para teste este ano ou não há mangueiras cadastradas!")
-                else:
-                    st.write(f"**{len(selected_hoses)} mangueiras selecionadas para envio:**")
-                    st.dataframe(selected_hoses[['id_mangueira', 'marca', 'ano_fabricacao']], use_container_width=True)
-                    st.session_state['hoses_for_th_shipment'] = selected_hoses
-
-            if 'hoses_for_th_shipment' in st.session_state and not st.session_state['hoses_for_th_shipment'].empty:
-                st.markdown("---")
-                st.subheader("Gerar Boletim de Remessa")
-
-                # Dados do Remetente (VIBRA) - pré-preenchidos
-                client_info = {
-                    "razao_social": "VIBRA ENERGIA S.A",
-                    "endereco": "Rod Pres Castelo Branco, Km 20 720",
-                    "bairro": "Jardim Mutinga",
-                    "cidade": "BARUERI",
-                    "uf": "SP",
-                    "cep": "06463-400",
-                    "fone": "2140022040"
-                }
-
-                # Formulário para os dados do Destinatário
-                st.markdown("**Dados do Destinatário (Empresa de Manutenção)**")
-                dest_razao_social = st.text_input("Razão Social", "TECNO SERVIC DO BRASIL LTDA")
-                dest_cnpj = st.text_input("CNPJ", "01.396.496/0001-27")
-                dest_endereco = st.text_input("Endereço", "AV ANALICE SAKATAUSKAS 1040")
-                col1, col2, col3 = st.columns([4,1,2])
-                dest_cidade = col1.text_input("Município", "SAO PAULO")
-                dest_uf = col2.text_input("UF", "SP")
-                dest_fone = col3.text_input("Telefone", "1135918267")
-                dest_ie = st.text_input("Inscrição Estadual", "492451258119")
-                
-                bulletin_number = st.text_input("Número do Boletim/OS", value=f"TH-{date.today().strftime('%Y%m%d')}")
-
-                if st.button("📄 Gerar e Registrar Boletim de Remessa", type="primary"):
-                    df_to_send = st.session_state['hoses_for_th_shipment']
-                    
-                    destinatario_info = {
-                        "razao_social": dest_razao_social, "cnpj": dest_cnpj, "endereco": dest_endereco,
-                        "cidade": dest_cidade, "uf": dest_uf, "fone": dest_fone, "ie": dest_ie,
-                        "responsavel": get_user_display_name()
-                    }
-
-                    report_html = generate_shipment_html(df_to_send, client_info, destinatario_info, bulletin_number)
-                    
-                    log_th_shipment(df_to_send, bulletin_number)
-                    
-                    js_code = f"""
-                        const reportHtml = {json.dumps(report_html)};
-                        const printWindow = window.open('', '_blank');
-                        if (printWindow) {{
-                            printWindow.document.write(reportHtml);
-                            printWindow.document.close();
-                            printWindow.focus();
-                            setTimeout(() => {{ printWindow.print(); printWindow.close(); }}, 500);
-                        }} else {{
-                            alert('Por favor, desabilite o bloqueador de pop-ups.');
-                        }}
-                    """
-                    streamlit_js_eval(js_expressions=js_code, key="print_shipment_js")
-                    
-                    st.success("Boletim de remessa gerado e log salvo!")
-                    del st.session_state['hoses_for_th_shipment']
-                    st.cache_data.clear()
-                    st.rerun()
-        
-        st.markdown("---")
-        
         df_hoses_history = load_sheet_data(HOSE_SHEET_NAME)
 
         if df_hoses_history.empty:

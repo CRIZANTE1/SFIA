@@ -94,7 +94,6 @@ def show_utilities_page():
 
         item_type = st.selectbox("Selecione o Tipo de Equipamento", ["Extintores", "Mangueiras"], key="shipment_item_type", on_change=lambda: st.session_state.pop('suggested_ids', None))
 
-        # --- Carregamento de Dados ---
         if item_type == 'Extintores':
             df_all_items = load_sheet_data(EXTINGUISHER_SHEET_NAME)
             df_log_items = load_sheet_data(EXTINGUISHER_SHIPMENT_LOG_SHEET_NAME)
@@ -104,7 +103,6 @@ def show_utilities_page():
             df_log_items = load_sheet_data(TH_SHIPMENT_LOG_SHEET_NAME)
             id_column = 'id_mangueira'
         
-        # --- Lógica de Sugestão Automática ---
         st.subheader("Sugestão Automática")
         if item_type == 'Extintores':
             if st.button("Sugerir ~50% dos Extintores (manutenção mais antiga)"):
@@ -123,7 +121,6 @@ def show_utilities_page():
         
         st.markdown("---")
 
-        # --- Seleção Manual e Geração do Boletim ---
         st.subheader("Seleção de Itens e Geração do Boletim")
         if df_all_items.empty:
             st.warning(f"Nenhum registro de {item_type.lower()} encontrado para selecionar.")
@@ -134,22 +131,28 @@ def show_utilities_page():
             
             selected_ids = st.multiselect(
                 f"Selecione ou edite os IDs dos {item_type} para a remessa:",
-                options,
-                default=default_selection,
-                key='selected_shipment_ids'
+                options, default=default_selection, key='selected_shipment_ids'
             )
 
             if selected_ids:
                 df_selected = df_latest[df_latest[id_column].isin(selected_ids)]
                 st.write(f"**{len(df_selected)} {item_type} selecionados:**")
-                # ... (código do dataframe de exibição, sem alterações) ...
+                display_cols = [id_column]
+                if item_type == 'Extintores':
+                    display_cols.extend([col for col in ['tipo_agente', 'capacidade', 'data_servico'] if col in df_selected.columns])
+                elif item_type == 'Mangueiras':
+                    display_cols.extend([col for col in ['tipo', 'diametro', 'ano_fabricacao'] if col in df_selected.columns])
+                st.dataframe(df_selected[display_cols], use_container_width=True)
 
                 st.markdown("---")
                 st.subheader("Dados da Remessa")
                 
-                # --- USO DE ST.FORM PARA GARANTIR A SUBMISSÃO DOS DADOS ---
                 with st.form("shipment_data_form"):
-                    remetente_info = { "razao_social": "VIBRA ENERGIA S.A", ... }
+                    remetente_info = {
+                        "razao_social": "VIBRA ENERGIA S.A", "endereco": "Rod Pres Castelo Branco, Km 20 720",
+                        "bairro": "Jardim Mutinga", "cidade": "BARUERI", "uf": "SP",
+                        "cep": "06463-400", "fone": "2140022040"
+                    }
                     st.markdown("**Dados do Destinatário**")
                     dest_razao_social = st.text_input("Razão Social", "TECNO SERVIC DO BRASIL LTDA")
                     dest_cnpj = st.text_input("CNPJ", "01.396.496/0001-27")
@@ -161,7 +164,6 @@ def show_utilities_page():
                     dest_ie = st.text_input("Inscrição Estadual", "492451258119")
                     bulletin_number = st.text_input("Número do Boletim/OS", f"REM-{date.today().strftime('%Y%m%d')}")
 
-                    # O botão agora é um st.form_submit_button
                     submitted = st.form_submit_button("📄 Gerar e Registrar Boletim de Remessa", type="primary")
 
                     if submitted:
@@ -187,11 +189,11 @@ def show_utilities_page():
                             """
                             streamlit_js_eval(js_expressions=js_code, key="print_util_shipment_js")
                             st.success("Boletim de remessa gerado e log de envio registrado!")
-                            # Limpa os estados relevantes
                             st.session_state.pop('suggested_ids', None)
                             st.session_state.pop('selected_shipment_ids', None)
                             st.cache_data.clear()
                             st.rerun()
+
 # --- Boilerplate de Autenticação ---
 if not show_login_page():
     st.stop()
@@ -202,4 +204,4 @@ if is_admin_user():
     show_utilities_page()
 else:
     st.sidebar.error("🔒 Acesso restrito")
-    show_demo_page() # Alterado para mostrar a página de demo em vez de apenas um aviso
+    show_demo_page()

@@ -94,28 +94,48 @@ def show_utilities_page():
 
         item_type = st.selectbox("Selecione o Tipo de Equipamento", ["Extintores", "Mangueiras"])
 
-        # ▼▼▼ Adicione este bloco para o botão de sugestão de extintores ▼▼▼
+        if item_type == 'Extintores':
+            df_all_items = load_sheet_data(EXTINGUISHER_SHEET_NAME)
+            df_log_items = load_sheet_data(EXTINGUISHER_SHIPMENT_LOG_SHEET_NAME)
+            id_column = 'numero_identificacao'
+        elif item_type == 'Mangueiras':
+            df_all_items = load_sheet_data(HOSE_SHEET_NAME)
+            df_log_items = load_sheet_data(TH_SHIPMENT_LOG_SHEET_NAME) 
+            id_column = 'id_mangueira'
+        else:
+            df_all_items = pd.DataFrame()
+            df_log_items = pd.DataFrame()
+            id_column = ''
+
+        # Botão de sugestão para Extintores
         if item_type == 'Extintores':
             if st.button("Sugerir Extintores para Manutenção"):
-                df_ext = load_sheet_data(EXTINGUISHER_SHEET_NAME)
-                df_log = load_sheet_data(EXTINGUISHER_SHIPMENT_LOG_SHEET_NAME)
-                suggested_ext = select_extinguishers_for_maintenance(df_ext, df_log)
+                suggested_ext = select_extinguishers_for_maintenance(df_all_items, df_log_items)
                 if not suggested_ext.empty:
-                    # Armazena os IDs sugeridos no session_state para pré-selecionar o multiselect
                     st.session_state['suggested_ids'] = suggested_ext['numero_identificacao'].tolist()
                     st.info(f"{len(st.session_state['suggested_ids'])} extintores com manutenção mais antiga foram pré-selecionados abaixo.")
+                    # Força um rerun para o multiselect atualizar com o default
+                    st.rerun()
                 else:
                     st.success("Nenhum extintor elegível para manutenção encontrado.")
 
+        # A verificação agora funciona, pois df_all_items sempre existe
         if df_all_items.empty:
             st.warning(f"Nenhum registro de {item_type.lower()} encontrado.")
         else:
             df_latest = df_all_items.sort_values(by=df_all_items.columns[0], ascending=False).drop_duplicates(subset=[id_column], keep='first')
             
             options = df_latest[id_column].tolist()
-            selected_ids = st.multiselect(f"Selecione os IDs dos {item_type} para a remessa:", options)
+            
+            # Usa a sugestão do session_state, se existir
+            default_selection = st.session_state.get('suggested_ids', [])
+            selected_ids = st.multiselect(f"Selecione os IDs dos {item_type} para a remessa:", options, default=default_selection)
 
             if selected_ids:
+                # Limpa a sugestão após ser usada
+                if 'suggested_ids' in st.session_state:
+                    del st.session_state['suggested_ids']
+
                 df_selected = df_latest[df_latest[id_column].isin(selected_ids)]
                 st.write(f"**{len(df_selected)} {item_type} selecionados:**")
                 st.dataframe(df_selected[[id_column] + [col for col in ['tipo_agente', 'capacidade', 'tipo', 'diametro'] if col in df_selected.columns]], use_container_width=True)

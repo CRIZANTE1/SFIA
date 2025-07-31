@@ -11,7 +11,9 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from auth.login_page import show_login_page, show_user_header, show_logout_button
 from auth.auth_utils import is_admin_user
 from operations.demo_page import show_demo_page
-from config.page_config import set_page_config 
+from config.page_config import set_page_config
+from reports.shipment_report import generate_shipment_html, log_shipment
+
 
 set_page_config()
 

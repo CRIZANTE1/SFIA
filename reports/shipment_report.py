@@ -116,61 +116,59 @@ def select_hoses_for_th(df_hoses, df_shipment_log):
     
 def generate_shipment_html(df_selected_items, item_type, remetente_info, destinatario_info, bulletin_number):
     """
-    Gera o HTML para um Boletim de Remessa genérico com cálculo de valor dinâmico.
+    Gera o HTML para um Boletim de Remessa genérico, com logo e linhas de tabela.
     """
     today = date.today().strftime('%d/%m/%Y')
-    styles = """... (Estilos CSS da DANFE, sem alterações) ..."""
+    
+    logo_url = "https://drive.google.com/file/d/1AABdw4iGBJ7tsQ7fR1WGTP5cML3Jlfx_/view?usp=drive_link"
+    logo_base64 = get_image_base64_from_url(logo_url)
+
+    styles = """
+    <style>
+        @media print { body { -webkit-print-color-adjust: exact; } }
+        body { font-family: sans-serif; font-size: 10px; margin: 0; padding: 20px; }
+        .container { border: 1px solid #000; padding: 10px; }
+        .header { display: flex; align-items: center; border-bottom: 1px solid #000; padding-bottom: 10px; }
+        .header .logo-container { width: 30%; text-align: center; }
+        .header .logo-container img { max-width: 150px; max-height: 70px; }
+        .header .remetente-info { width: 40%; padding-left: 10px; }
+        .header .title-box { width: 30%; border-left: 1px solid #000; text-align: center; padding-left: 10px; }
+        .header h1 { margin: 0; font-size: 14px; }
+        .header h2 { margin: 5px 0; font-size: 18px; }
+        .info-section { border: 1px solid #000; margin-top: 10px; }
+        .info-section .title { background-color: #f2f2f2; font-weight: bold; padding: 3px; border-bottom: 1px solid #000; }
+        .info-section .content { display: flex; flex-wrap: wrap; }
+        .info-section .field { padding: 3px; border-right: 1px solid #ccc; flex-grow: 1; min-width: 15%; }
+        .info-section .label { font-size: 8px; color: #555; display: block; }
+        .info-section .value { font-size: 12px; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 9px; }
+        table, th, td { border: 1px solid #000 !important; }
+        th, td { padding: 4px; text-align: left; }
+        th { background-color: #f2f2f2; text-align: center; }
+        .total-row td { font-weight: bold; }
+        .footer { margin-top: 20px; font-size: 9px; }
+    </style>
+    """
     
     total_value = 0
     item_rows_html = ""
 
     for _, row in df_selected_items.iterrows():
-        unit_value = 0 # Valor padrão
+        unit_value = 0
         if item_type == 'Mangueiras':
             item_id = row['id_mangueira']
-            description = f"MANGUEIRA DE INCÊNDIO PARA TESTE HIDROSTÁTICO - TIPO {row.get('tipo', 'N/A')} - {row.get('diametro', 'N/A')}"
-            unit_value = 3000
-        
+            description = f"MANGUEIRA DE INCÊNDIO P/ TESTE HIDROSTÁTICO - TIPO {row.get('tipo', 'N/A')} - {row.get('diametro', 'N/A')}"
+            unit_value = 3000.00
         elif item_type == 'Extintores':
             item_id = row['numero_identificacao']
-            description = f"EXTINTOR DE INCÊNDIO PARA MANUTENÇÃO - TIPO {row.get('tipo_agente', 'N/A')} - {row.get('capacidade', 'N/A')}"
-            
-            # Lógica de Preços para Extintores
+            description = f"EXTINTOR DE INCÊNDIO P/ MANUTENÇÃO - TIPO {row.get('tipo_agente', 'N/A')} - {row.get('capacidade', 'N/A')}"
             capacidade = str(row.get('capacidade', '')).lower()
             agente = str(row.get('tipo_agente', '')).lower()
-
-            if '50kg' in capacidade:
-                unit_value = 3000.00
-            elif '12kg' in capacidade:
-                unit_value = 293.00
-            elif 'abc' in agente:
-                unit_value = 600.00
-            elif 'co2' in agente:
-                unit_value = 300.00
-            else:
-                unit_value = 150.00 # Valor padrão para outros extintores
-            
-        total_value += unit_value
-        item_rows_html += f"""
-        <tr>
-            <td>{item_id}</td><td>{description}</td><td>N/A</td><td>N/A</td>
-            <td>UN</td><td>1</td><td>{unit_value:,.2f}</td><td>{unit_value:,.2f}</td>
-        </tr>
-        """
-
-    for _, row in df_selected_items.iterrows():
-        if item_type == 'Mangueiras':
-            item_id = row['id_mangueira']
-            description = f"MANGUEIRA DE INCÊNDIO PARA TESTE HIDROSTÁTICO - TIPO {row.get('tipo', 'N/A')} - {row.get('diametro', 'N/A')}"
-            unit_value = 3000
-        elif item_type == 'Extintores':
-            item_id = row['numero_identificacao']
-            description = f"EXTINTOR DE INCÊNDIO PARA MANUTENÇÃO - TIPO {row.get('tipo_agente', 'N/A')} - {row.get('capacidade', 'N/A')}"
-            unit_value = 300
-        else:
-            item_id = "N/A"
-            description = "Item desconhecido"
-            unit_value = 0
+            if '50kg' in capacidade: unit_value = 3000.00
+            elif '12kg' in capacidade: unit_value = 293.00
+            elif 'abc' in agente: unit_value = 600.00
+            elif 'co2' in agente: unit_value = 300.00
+            else: unit_value = 150.00
             
         total_value += unit_value
         item_rows_html += f"""
@@ -190,8 +188,10 @@ def generate_shipment_html(df_selected_items, item_type, remetente_info, destina
     
     html += f"""
     <div class="header">
-        <div class="logo">
-            <h2 style="color: #0033a0;">V/V VIBRA</h2>
+        <div class="logo-container">
+            <img src="{logo_base64}" alt="Logo VIBRA">
+        </div>
+        <div class="remetente-info">
             <strong>{remetente_info.get('razao_social', 'N/A')}</strong><br>
             {remetente_info.get('endereco', 'N/A')}<br>
             {remetente_info.get('bairro', 'N/A')} - {remetente_info.get('cidade', 'N/A')} / {remetente_info.get('uf', 'N/A')}<br>
@@ -200,7 +200,7 @@ def generate_shipment_html(df_selected_items, item_type, remetente_info, destina
         <div class="title-box">
             <h1>BOLETIM DE REMESSA</h1>
             <h2>Nº: {bulletin_number}</h2>
-            <span><strong>NATUREZA DA OPERAÇÃO:</strong><br>Remessa de mercadoria para conserto ou reparo</span>
+            <span><strong>NATUREZA DA OPERAÇÃO:</strong><br>Remessa para conserto ou reparo</span>
         </div>
     </div>
     """

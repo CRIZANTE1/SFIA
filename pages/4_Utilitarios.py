@@ -97,8 +97,15 @@ def show_utilities_page():
         st.header("Gerar Boletim de Remessa para Manutenção/Teste")
         st.info("Selecione o tipo de equipamento, use a sugestão automática ou escolha manualmente os itens para enviar.")
 
-        item_type = st.selectbox("Selecione o Tipo de Equipamento", ["Extintores", "Mangueiras"], key="shipment_item_type", on_change=lambda: st.session_state.pop('suggested_ids', None))
+        # Limpa o estado do PDF gerado se o tipo de item mudar
+        item_type = st.selectbox(
+            "Selecione o Tipo de Equipamento", 
+            ["Extintores", "Mangueiras"], 
+            key="shipment_item_type", 
+            on_change=lambda: st.session_state.pop('pdf_generated_info', None)
+        )
 
+        # --- Carregamento de Dados ---
         if item_type == 'Extintores':
             df_all_items = load_sheet_data(EXTINGUISHER_SHEET_NAME)
             df_log_items = load_sheet_data(EXTINGUISHER_SHIPMENT_LOG_SHEET_NAME)
@@ -108,6 +115,7 @@ def show_utilities_page():
             df_log_items = load_sheet_data(TH_SHIPMENT_LOG_SHEET_NAME)
             id_column = 'id_mangueira'
         
+        # --- Lógica de Sugestão Automática ---
         st.subheader("Sugestão Automática")
         if item_type == 'Extintores':
             if st.button("Sugerir ~50% dos Extintores (manutenção mais antiga)"):
@@ -126,6 +134,7 @@ def show_utilities_page():
         
         st.markdown("---")
 
+        # --- Seleção Manual e Geração do Boletim ---
         st.subheader("Seleção de Itens e Geração do Boletim")
         if df_all_items.empty:
             st.warning(f"Nenhum registro de {item_type.lower()} encontrado para selecionar.")
@@ -177,34 +186,33 @@ def show_utilities_page():
                                 "cidade": dest_cidade, "uf": dest_uf, "fone": dest_fone,
                                 "responsavel": get_user_display_name()
                             }
-                            
-                            # 1. Gera o PDF diretamente em bytes
-                            pdf_bytes = generate_shipment_html_and_pdf(
-                                df_selected_items=df_selected, 
-                                item_type=item_type, 
-                                remetente_info=remetente_info, 
-                                destinatario_info=destinatario_info, 
-                                bulletin_number=bulletin_number
-                            )
-                            
-                            # 2. Salva o log na planilha
+                            pdf_bytes = generate_shipment_html_and_pdf(df_selected, item_type, remetente_info, destinatario_info, bulletin_number)
                             log_shipment(df_selected, item_type, bulletin_number)
                             
-                            st.success("Boletim de remessa gerado e log de envio registrado!")
-                            
-                            # 3. Oferece o botão de download para o PDF
-                            st.download_button(
-                                label="📥 Baixar Boletim de Remessa (PDF)",
-                                data=pdf_bytes,
-                                file_name=f"Boletim_Remessa_{bulletin_number}.pdf",
-                                mime="application/pdf"
-                            )
-                            
-                            # Limpa os estados relevantes
-                            st.session_state.pop('suggested_ids', None)
-                            st.session_state.pop('selected_shipment_ids', None)
+                            # Armazena os dados do PDF no session_state para exibir o botão de download após o rerun
+                            st.session_state['pdf_generated_info'] = {
+                                "data": pdf_bytes,
+                                "file_name": f"Boletim_Remessa_{bulletin_number}.pdf"
+                            }
                             st.cache_data.clear()
-                         
+                            st.rerun()
+
+            # Exibe o botão de download se um PDF foi gerado
+            if st.session_state.get('pdf_generated_info'):
+                pdf_info = st.session_state['pdf_generated_info']
+                st.success("Boletim de remessa gerado e log de envio registrado com sucesso!")
+                st.download_button(
+                    label="📥 Baixar Boletim de Remessa (PDF)",
+                    data=pdf_info['data'],
+                    file_name=pdf_info['file_name'],
+                    mime="application/pdf"
+                )
+                if st.button("Gerar Novo Boletim"):
+                    # Limpa todos os estados relevantes para começar de novo
+                    st.session_state.pop('pdf_generated_info', None)
+                    st.session_state.pop('suggested_ids', None)
+                    st.session_state.pop('selected_shipment_ids', None)
+                    st.rerun()
 
 # --- Boilerplate de Autenticação ---
 if not show_login_page():

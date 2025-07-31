@@ -64,10 +64,12 @@ def select_extinguishers_for_maintenance(df_extinguishers, df_shipment_log):
     num_to_select = max(1, len(eligible) // 2)
         
     return eligible.head(num_to_select)
+    
 def select_hoses_for_th(df_hoses, df_shipment_log):
     """
-    Seleciona aproximadamente metade das mangueiras mais antigas que
-    ainda não foram enviadas para teste no ano corrente.
+    Seleciona aproximadamente 50% das mangueiras para teste hidrostático,
+    priorizando aquelas com o ano de fabricação mais antigo e que ainda não
+    foram enviadas este ano.
     """
     if df_hoses.empty:
         return pd.DataFrame()
@@ -75,25 +77,28 @@ def select_hoses_for_th(df_hoses, df_shipment_log):
     if 'ano_fabricacao' not in df_hoses.columns:
         return pd.DataFrame()
     df_hoses['ano_fabricacao'] = pd.to_numeric(df_hoses['ano_fabricacao'], errors='coerce')
-    df_hoses = df_hoses.dropna(subset=['ano_fabricacao'])
+    df_hoses = df_hoses.dropna(subset=['ano_fabricacao', 'id_mangueira'])
 
+    # Filtra mangueiras já enviadas este ano
     current_year = date.today().year
-    hoses_sent_this_year = []
-    
+    sent_this_year = []
     if not df_shipment_log.empty and 'ano_remessa' in df_shipment_log.columns:
         df_shipment_log['ano_remessa'] = pd.to_numeric(df_shipment_log['ano_remessa'], errors='coerce')
-        hoses_sent_this_year = df_shipment_log[df_shipment_log['ano_remessa'] == current_year]['id_mangueira'].tolist()
+        if 'id_mangueira' in df_shipment_log.columns:
+            sent_this_year = df_shipment_log[df_shipment_log['ano_remessa'] == current_year]['id_mangueira'].tolist()
 
-    eligible_hoses = df_hoses[~df_hoses['id_mangueira'].isin(hoses_sent_this_year)]
+    eligible = df_hoses[~df_hoses['id_mangueira'].isin(sent_this_year)]
     
-    if eligible_hoses.empty:
+    if eligible.empty:
         return pd.DataFrame()
         
-    eligible_hoses = eligible_hoses.sort_values(by='ano_fabricacao', ascending=True)
+    # Ordena pelas mais antigas
+    eligible = eligible.sort_values(by='ano_fabricacao', ascending=True)
     
-    num_to_select = max(1, len(eligible_hoses) // 2)
+    # Seleciona aproximadamente 50%
+    num_to_select = max(1, len(eligible) // 2)
         
-    return eligible_hoses.head(num_to_select)
+    return eligible.head(num_to_select)
     
 def generate_shipment_html(df_selected_items, item_type, remetente_info, destinatario_info, bulletin_number):
     """

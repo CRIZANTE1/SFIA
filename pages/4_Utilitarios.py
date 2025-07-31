@@ -169,8 +169,7 @@ def show_utilities_page():
                         with st.spinner("Gerando boletim e registrando envio..."):
                             destinatario_info = {
                                 "razao_social": dest_razao_social, "cnpj": dest_cnpj, "endereco": dest_endereco,
-                                "cidade": dest_cidade, "uf": dest_uf, "fone": dest_fone, "ie": dest_ie,
-                                "responsavel": get_user_display_name()
+                                "cidade": dest_cidade, "uf": dest_uf, "fone": dest_fone, "responsavel": get_user_display_name()
                             }
                             report_html = generate_shipment_html(df_selected, item_type, remetente_info, destinatario_info, bulletin_number)
                             log_shipment(df_selected, item_type, bulletin_number)

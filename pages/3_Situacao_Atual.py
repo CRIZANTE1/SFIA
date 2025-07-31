@@ -447,18 +447,18 @@ def show_dashboard_page():
             st.info("O sistema selecionará automaticamente ~50% das mangueiras mais antigas que ainda não foram enviadas para teste este ano.")
             
             if st.button("Sugerir Mangueiras para Remessa"):
-                # Carrega os dados brutos necessários para a seleção
-                df_hoses_raw = load_sheet_data(HOSE_SHEET_NAME)
-                df_log_raw = load_sheet_data(TH_SHIPMENT_LOG_SHEET_NAME)
+                # Carrega os dados já como DataFrames
+                df_hoses = load_sheet_data(HOSE_SHEET_NAME)
+                df_log = load_sheet_data(TH_SHIPMENT_LOG_SHEET_NAME)
                 
-                selected_hoses = select_hoses_for_th(df_hoses_raw, df_log_raw)
+                # A chamada agora passa DataFrames, como a nova função espera
+                selected_hoses = select_hoses_for_th(df_hoses, df_log)
                 
                 if selected_hoses.empty:
                     st.success("🎉 Todas as mangueiras elegíveis já foram enviadas para teste este ano ou não há mangueiras cadastradas!")
                 else:
                     st.write(f"**{len(selected_hoses)} mangueiras selecionadas para envio:**")
                     st.dataframe(selected_hoses[['id_mangueira', 'marca', 'ano_fabricacao']], use_container_width=True)
-                    # Armazena a seleção no session_state para o próximo passo
                     st.session_state['hoses_for_th_shipment'] = selected_hoses
 
             # Mostra a segunda parte se houver uma seleção ativa

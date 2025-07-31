@@ -81,8 +81,11 @@ def generate_pdf_from_html(html_content):
     return pdf_bytes.getvalue()
 
 def generate_shipment_html_and_pdf(df_selected_items, item_type, remetente_info, destinatario_info, bulletin_number):
-    """Gera o HTML para o boletim e o converte para um PDF em bytes."""
+    """
+    Gera o HTML para o boletim e o converte para um PDF em bytes, incluindo campos para assinatura.
+    """
     today = date.today().strftime('%d/%m/%Y')
+    
     logo_file_id = "1AABdw4iGBJ7tsQ7fR1WGTP5cML3Jlfx_"
     logo_base64 = get_image_base64_from_drive(logo_file_id)
     logo_html = f'<img src="{logo_base64}" alt="Logo VIBRA">' if logo_base64 else '<h2>VIBRA ENERGIA S.A</h2>'
@@ -110,6 +113,9 @@ def generate_shipment_html_and_pdf(df_selected_items, item_type, remetente_info,
         th { background-color: #f2f2f2; text-align: center; }
         .total-row td { font-weight: bold; }
         .footer { margin-top: 20px; font-size: 9px; }
+        .signatures { display: flex; justify-content: space-around; margin-top: 50px; text-align: center; }
+        .signature-box { width: 45%; }
+        .signature-box .line { border-top: 1px solid #000; margin-top: 40px; }
     </style>
     """
     
@@ -131,9 +137,21 @@ def generate_shipment_html_and_pdf(df_selected_items, item_type, remetente_info,
             elif 'abc' in agente: unit_value = 600.00
             elif 'co2' in agente: unit_value = 300.00
             else: unit_value = 150.00
+            
         total_value += unit_value
-        item_rows_html += f'<tr><td>{item_id}</td><td>{description}</td><td>N/A</td><td>N/A</td><td>UN</td><td>1</td><td>{unit_value:,.2f}</td><td>{unit_value:,.2f}</td></tr>'
-    
+        item_rows_html += f"""
+        <tr>
+            <td>{item_id}</td>
+            <td>{description}</td>
+            <td>N/A</td>
+            <td>N/A</td>
+            <td>UN</td>
+            <td>1</td>
+            <td>{unit_value:,.2f}</td>
+            <td>{unit_value:,.2f}</td>
+        </tr>
+        """
+
     html_string = f"""
     <html>
         <head><title>Boletim de Remessa {bulletin_number}</title>{styles}</head>
@@ -147,12 +165,13 @@ def generate_shipment_html_and_pdf(df_selected_items, item_type, remetente_info,
                     CEP: {remetente_info.get('cep', 'N/A')} FONE: {remetente_info.get('fone', 'N/A')}
                 </div>
                 <div class="title-box">
-                    <h1>BOLETIM DE REMESSA</h1><h2>Nº: {bulletin_number}</h2>
+                    <h1>BOLETIM DE REMESSA</h1>
+                    <h2>Nº: {bulletin_number}</h2>
                     <span><strong>NATUREZA DA OPERAÇÃO:</strong><br>Remessa para conserto ou reparo</span>
                 </div>
             </div>
             <div class="info-section">
-                <div class="title">DESTINATÁRIO / REMETENTE</div>
+                <div class="title">DESTINATÁRIO</div>
                 <div class="content">
                     <div class="field" style="width: 60%;"><span class="label">NOME / RAZÃO SOCIAL</span><span class="value">{destinatario_info.get('razao_social', 'N/A')}</span></div>
                     <div class="field" style="width: 38%;"><span class="label">CNPJ / CPF</span><span class="value">{destinatario_info.get('cnpj', 'N/A')}</span></div>
@@ -166,12 +185,26 @@ def generate_shipment_html_and_pdf(df_selected_items, item_type, remetente_info,
                 <tr><th>CÓD.</th><th>DESCRIÇÃO DO PRODUTO</th><th>NCM/SH</th><th>CFOP</th><th>UNID.</th><th>QUANT.</th><th>V. UNIT.</th><th>V. TOTAL</th></tr>
                 {item_rows_html}
                 <tr class="total-row">
-                    <td colspan="6"></td><td><strong>VALOR TOTAL DOS PRODUTOS</strong></td><td><strong>{total_value:,.2f}</strong></td>
+                    <td colspan="6"></td>
+                    <td><strong>VALOR TOTAL DOS PRODUTOS</strong></td>
+                    <td><strong>{total_value:,.2f}</strong></td>
                 </tr>
             </table>
             <div class="footer">
                 <strong>INFORMAÇÕES COMPLEMENTARES</strong><br>
-                <span>Material enviado para Teste/Manutenção conforme normas aplicáveis. Responsável pela remessa: {destinatario_info.get('responsavel', 'N/A')}</span>
+                <span>Material enviado para Teste/Manutenção conforme normas aplicáveis.</span>
+            </div>
+            <div class="signatures">
+                <div class="signature-box">
+                    <div class="line"></div>
+                    <span>{destinatario_info.get('responsavel', 'N/A')}</span><br>
+                    <span style="font-size: 8px;">(Remetente - VIBRA ENERGIA)</span>
+                </div>
+                <div class="signature-box">
+                    <div class="line"></div>
+                    <span style="font-size: 8px;">Nome / CPF do Recebedor</span><br>
+                    <span style="font-size: 8px;">(Destinatário)</span>
+                </div>
             </div>
         </div></body>
     </html>

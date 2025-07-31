@@ -447,11 +447,11 @@ def show_dashboard_page():
             st.info("O sistema selecionará automaticamente ~50% das mangueiras mais antigas que ainda não foram enviadas para teste este ano.")
             
             if st.button("Sugerir Mangueiras para Remessa"):
-                # Carrega os dados já como DataFrames
+                # Carrega os dados diretamente como DataFrames
                 df_hoses = load_sheet_data(HOSE_SHEET_NAME)
                 df_log = load_sheet_data(TH_SHIPMENT_LOG_SHEET_NAME)
                 
-                # A chamada agora passa DataFrames, como a nova função espera
+                # A função agora lida corretamente com um df_log vazio
                 selected_hoses = select_hoses_for_th(df_hoses, df_log)
                 
                 if selected_hoses.empty:
@@ -461,7 +461,6 @@ def show_dashboard_page():
                     st.dataframe(selected_hoses[['id_mangueira', 'marca', 'ano_fabricacao']], use_container_width=True)
                     st.session_state['hoses_for_th_shipment'] = selected_hoses
 
-            # Mostra a segunda parte se houver uma seleção ativa
             if 'hoses_for_th_shipment' in st.session_state and not st.session_state['hoses_for_th_shipment'].empty:
                 st.markdown("---")
                 st.subheader("Gerar Boletim de Remessa")
@@ -470,14 +469,8 @@ def show_dashboard_page():
 
                 if st.button("📄 Gerar e Registrar Boletim de Remessa", type="primary"):
                     df_to_send = st.session_state['hoses_for_th_shipment']
-                    
-                    # 1. Gera o HTML para o PDF
                     report_html = generate_shipment_html(df_to_send, client_name, get_user_display_name(), bulletin_number)
-                    
-                    # 2. Salva o log na planilha
                     log_th_shipment(df_to_send, bulletin_number)
-                    
-                    # 3. Dispara a impressão
                     js_code = f"""
                         const reportHtml = {json.dumps(report_html)};
                         const printWindow = window.open('', '_blank');
@@ -491,9 +484,7 @@ def show_dashboard_page():
                         }}
                     """
                     streamlit_js_eval(js_expressions=js_code, key="print_shipment_js")
-                    
                     st.success("Boletim de remessa gerado e log salvo! A seleção foi reiniciada.")
-                    # Limpa a seleção do session_state
                     del st.session_state['hoses_for_th_shipment']
                     st.cache_data.clear()
                     st.rerun()

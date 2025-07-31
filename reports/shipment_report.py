@@ -31,19 +31,25 @@ def log_shipment(df_selected_items, item_type, bulletin_number):
 
 def select_extinguishers_for_maintenance(df_extinguishers, df_shipment_log):
     """
-    Seleciona extintores para manutenção com base no serviço mais antigo.
+    Seleciona aproximadamente 50% dos extintores para manutenção, priorizando
+    aqueles com a data de serviço mais antiga e que ainda não foram enviados este ano.
     """
     if df_extinguishers.empty:
         return pd.DataFrame()
 
+    if 'data_servico' not in df_extinguishers.columns:
+        return pd.DataFrame()
     df_extinguishers['data_servico'] = pd.to_datetime(df_extinguishers['data_servico'], errors='coerce')
+    df_extinguishers = df_extinguishers.dropna(subset=['data_servico', 'numero_identificacao'])
+
+    # 1. Pega o último registro de serviço para cada extintor único
     latest_extinguishers = df_extinguishers.sort_values('data_servico', ascending=False).drop_duplicates('numero_identificacao', keep='first')
 
+    # 2. Filtra os extintores que já foram enviados para manutenção este ano
     current_year = date.today().year
     sent_this_year = []
     if not df_shipment_log.empty and 'ano_remessa' in df_shipment_log.columns:
         df_shipment_log['ano_remessa'] = pd.to_numeric(df_shipment_log['ano_remessa'], errors='coerce')
-        # Garante que a coluna de id existe antes de filtrar
         if 'numero_identificacao' in df_shipment_log.columns:
             sent_this_year = df_shipment_log[df_shipment_log['ano_remessa'] == current_year]['numero_identificacao'].tolist()
 
@@ -52,12 +58,12 @@ def select_extinguishers_for_maintenance(df_extinguishers, df_shipment_log):
     if eligible.empty:
         return pd.DataFrame()
 
+    # 3. Ordena os elegíveis pelo serviço mais antigo
     eligible = eligible.sort_values(by='data_servico', ascending=True)
     
-    num_to_select = max(1, len(eligible) // 4)
+    num_to_select = max(1, len(eligible) // 2)
         
     return eligible.head(num_to_select)
-
 def select_hoses_for_th(df_hoses, df_shipment_log):
     """
     Seleciona aproximadamente metade das mangueiras mais antigas que

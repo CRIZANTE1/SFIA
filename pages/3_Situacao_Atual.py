@@ -464,13 +464,44 @@ def show_dashboard_page():
             if 'hoses_for_th_shipment' in st.session_state and not st.session_state['hoses_for_th_shipment'].empty:
                 st.markdown("---")
                 st.subheader("Gerar Boletim de Remessa")
-                client_name = st.text_input("Nome do Cliente", value="VIBRA ENERGIA S.A")
-                bulletin_number = st.text_input("Número do Boletim/OS", value=f"TH-{date.today().strftime('%Y-%m')}")
+
+                # Dados do Remetente (VIBRA) - pré-preenchidos
+                client_info = {
+                    "razao_social": "VIBRA ENERGIA S.A",
+                    "endereco": "Rod Pres Castelo Branco, Km 20 720",
+                    "bairro": "Jardim Mutinga",
+                    "cidade": "BARUERI",
+                    "uf": "SP",
+                    "cep": "06463-400",
+                    "fone": "2140022040"
+                }
+
+                # Formulário para os dados do Destinatário
+                st.markdown("**Dados do Destinatário (Empresa de Manutenção)**")
+                dest_razao_social = st.text_input("Razão Social", "TECNO SERVIC DO BRASIL LTDA")
+                dest_cnpj = st.text_input("CNPJ", "01.396.496/0001-27")
+                dest_endereco = st.text_input("Endereço", "AV ANALICE SAKATAUSKAS 1040")
+                col1, col2, col3 = st.columns([4,1,2])
+                dest_cidade = col1.text_input("Município", "SAO PAULO")
+                dest_uf = col2.text_input("UF", "SP")
+                dest_fone = col3.text_input("Telefone", "1135918267")
+                dest_ie = st.text_input("Inscrição Estadual", "492451258119")
+                
+                bulletin_number = st.text_input("Número do Boletim/OS", value=f"TH-{date.today().strftime('%Y%m%d')}")
 
                 if st.button("📄 Gerar e Registrar Boletim de Remessa", type="primary"):
                     df_to_send = st.session_state['hoses_for_th_shipment']
-                    report_html = generate_shipment_html(df_to_send, client_name, get_user_display_name(), bulletin_number)
+                    
+                    destinatario_info = {
+                        "razao_social": dest_razao_social, "cnpj": dest_cnpj, "endereco": dest_endereco,
+                        "cidade": dest_cidade, "uf": dest_uf, "fone": dest_fone, "ie": dest_ie,
+                        "responsavel": get_user_display_name()
+                    }
+
+                    report_html = generate_shipment_html(df_to_send, client_info, destinatario_info, bulletin_number)
+                    
                     log_th_shipment(df_to_send, bulletin_number)
+                    
                     js_code = f"""
                         const reportHtml = {json.dumps(report_html)};
                         const printWindow = window.open('', '_blank');
@@ -484,7 +515,8 @@ def show_dashboard_page():
                         }}
                     """
                     streamlit_js_eval(js_expressions=js_code, key="print_shipment_js")
-                    st.success("Boletim de remessa gerado e log salvo! A seleção foi reiniciada.")
+                    
+                    st.success("Boletim de remessa gerado e log salvo!")
                     del st.session_state['hoses_for_th_shipment']
                     st.cache_data.clear()
                     st.rerun()

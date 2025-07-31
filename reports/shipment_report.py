@@ -205,7 +205,7 @@ def generate_shipment_html(df_selected_items, item_type, remetente_info, destina
     </div>
     """
     
-    html += f"""
+     html += f"""
     <div class="info-section">
         <div class="title">DESTINATÁRIO / REMETENTE</div>
         <div class="content">
@@ -214,8 +214,7 @@ def generate_shipment_html(df_selected_items, item_type, remetente_info, destina
             <div class="field" style="width: 100%;"><span class="label">ENDEREÇO</span><span class="value">{destinatario_info.get('endereco', 'N/A')}</span></div>
             <div class="field" style="width: 40%;"><span class="label">MUNICÍPIO</span><span class="value">{destinatario_info.get('cidade', 'N/A')}</span></div>
             <div class="field" style="width: 10%;"><span class="label">UF</span><span class="value">{destinatario_info.get('uf', 'N/A')}</span></div>
-            <div class="field" style="width: 20%;"><span class="label">FONE / FAX</span><span class="value">{destinatario_info.get('fone', 'N/A')}</span></div>
-            <div class="field" style="width: 28%;"><span class="label">INSCRIÇÃO ESTADUAL</span><span class="value">{destinatario_info.get('ie', 'N/A')}</span></div>
+            <div class="field" style="width: 48%; border-right: none;"><span class="label">FONE / FAX</span><span class="value">{destinatario_info.get('fone', 'N/A')}</span></div>
         </div>
     </div>
     """

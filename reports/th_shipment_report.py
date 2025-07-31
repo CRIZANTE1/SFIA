@@ -3,17 +3,16 @@ from datetime import date
 from gdrive.gdrive_upload import GoogleDriveUploader
 from gdrive.config import TH_SHIPMENT_LOG_SHEET_NAME
 
+
 def select_hoses_for_th(df_hoses, df_shipment_log):
     """
     Seleciona aproximadamente metade das mangueiras mais antigas que
     ainda não foram enviadas para teste no ano corrente.
-    AGORA ACEITA DATAFRAMES DIRETAMENTE.
     """
-    # A verificação agora usa .empty, que é a forma correta
     if df_hoses.empty:
         return pd.DataFrame()
 
-    # Garante que a coluna de fabricação exista e a converte para data
+    # Garante que a coluna de fabricação seja numérica
     if 'ano_fabricacao' not in df_hoses.columns:
         return pd.DataFrame()
     df_hoses['ano_fabricacao'] = pd.to_numeric(df_hoses['ano_fabricacao'], errors='coerce')
@@ -22,22 +21,23 @@ def select_hoses_for_th(df_hoses, df_shipment_log):
     # Filtra mangueiras já enviadas este ano
     current_year = date.today().year
     hoses_sent_this_year = []
-    if not df_shipment_log.empty:
+    
+    # Lida com o log de remessas, mesmo que esteja vazio
+    if not df_shipment_log.empty and 'ano_remessa' in df_shipment_log.columns:
         df_shipment_log['ano_remessa'] = pd.to_numeric(df_shipment_log['ano_remessa'], errors='coerce')
         hoses_sent_this_year = df_shipment_log[df_shipment_log['ano_remessa'] == current_year]['id_mangueira'].tolist()
 
     eligible_hoses = df_hoses[~df_hoses['id_mangueira'].isin(hoses_sent_this_year)]
     
-    # Ordena pelas mais antigas
+    if eligible_hoses.empty:
+        return pd.DataFrame()
+        
     eligible_hoses = eligible_hoses.sort_values(by='ano_fabricacao', ascending=True)
     
-    # Seleciona aproximadamente metade
-    num_to_select = len(eligible_hoses) // 2
-    if num_to_select == 0 and not eligible_hoses.empty:
-        num_to_select = 1 # Garante que pelo menos uma seja selecionada se houver alguma elegível
+    num_to_select = max(1, len(eligible_hoses) // 2)
         
     return eligible_hoses.head(num_to_select)
-
+    
 def generate_shipment_html(df_selected_hoses, client_name, responsible_name, bulletin_number):
     """
     Gera o HTML para o Boletim de Remessa para Teste Hidrostático.

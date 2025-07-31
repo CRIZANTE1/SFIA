@@ -2,23 +2,10 @@ import pandas as pd
 from datetime import date
 import base64
 import requests
+from weasyprint import HTML
 from gdrive.gdrive_upload import GoogleDriveUploader
 from gdrive.config import TH_SHIPMENT_LOG_SHEET_NAME, EXTINGUISHER_SHIPMENT_LOG_SHEET_NAME
 
-def get_image_base64_from_url(image_url):
-    """Baixa uma imagem de uma URL direta e a converte para base64."""
-    try:
-        response = requests.get(image_url, timeout=10)
-        response.raise_for_status() 
-        
-        b64_string = base64.b64encode(response.content).decode()
-        
-        content_type = response.headers.get('Content-Type', 'image/png')
-        
-        return f"data:{content_type};base64,{b64_string}"
-    except requests.exceptions.RequestException as e:
-        print(f"Erro ao baixar a imagem do logo: {e}")
-        return 
 
 def log_shipment(df_selected_items, item_type, bulletin_number):
     """
@@ -117,14 +104,35 @@ def select_hoses_for_th(df_hoses, df_shipment_log):
         
     return eligible.head(num_to_select)
     
-def generate_shipment_html(df_selected_items, item_type, remetente_info, destinatario_info, bulletin_number):
+def get_image_base64_from_drive(file_id):
+    """ Baixa uma imagem do Google Drive e a converte para uma string Base64. """
+    url = f'https://drive.google.com/uc?export=download&id={file_id}'
+    try:
+        response = requests.get(url, timeout=15)
+        if response.status_code == 200:
+            encoded_string = base64.b64encode(response.content).decode('utf-8')
+            content_type = response.headers.get('Content-Type', 'image/png')
+            return f"data:{content_type};base64,{encoded_string}"
+        return None
+    except requests.exceptions.RequestException:
+        return None
+
+def generate_pdf_from_html(html_content):
+    """Converte uma string HTML em um objeto de bytes de PDF usando WeasyPrint."""
+    pdf_bytes = io.BytesIO()
+    HTML(string=html_content).write_pdf(pdf_bytes)
+    return pdf_bytes.getvalue()
+
+def generate_shipment_html_and_pdf(df_selected_items, item_type, remetente_info, destinatario_info, bulletin_number):
     """
-    Gera o HTML para um Boletim de Remessa genérico, com logo e linhas de tabela.
+    Gera o HTML para o boletim e o converte para um PDF em bytes.
+    Retorna os bytes do PDF.
     """
     today = date.today().strftime('%d/%m/%Y')
     
-    logo_url = "https://drive.google.com/file/d/1AABdw4iGBJ7tsQ7fR1WGTP5cML3Jlfx_/view?usp=drive_link"
-    logo_base64 = get_image_base64_from_url(logo_url)
+    logo_file_id = "1AABdw4iGBJ7tsQ7fR1WGTP5cML3Jlfx_"
+    logo_base64 = get_image_base64_from_drive(logo_file_id)
+    logo_html = f'<img src="{logo_base64}" alt="Logo VIBRA">' if logo_base64 else '<h2>VIBRA ENERGIA S.A</h2>'
 
     styles = """
     <style>

@@ -1,5 +1,7 @@
 import pandas as pd
 from datetime import date
+import base64
+import requests
 from gdrive.gdrive_upload import GoogleDriveUploader
 from gdrive.config import TH_SHIPMENT_LOG_SHEET_NAME, EXTINGUISHER_SHIPMENT_LOG_SHEET_NAME
 
@@ -7,14 +9,16 @@ def get_image_base64_from_url(image_url):
     """Baixa uma imagem de uma URL direta e a converte para base64."""
     try:
         response = requests.get(image_url, timeout=10)
-        response.raise_for_status() # Lança um erro se o download falhar
+        response.raise_for_status() 
+        
         b64_string = base64.b64encode(response.content).decode()
+        
         content_type = response.headers.get('Content-Type', 'image/png')
+        
         return f"data:{content_type};base64,{b64_string}"
     except requests.exceptions.RequestException as e:
-        # Em caso de erro, não quebra o app, apenas não mostra a imagem.
         print(f"Erro ao baixar a imagem do logo: {e}")
-        return ""
+        return 
 
 def log_shipment(df_selected_items, item_type, bulletin_number):
     """

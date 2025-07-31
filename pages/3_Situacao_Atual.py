@@ -14,7 +14,7 @@ from auth.login_page import show_login_page, show_user_header, show_logout_butto
 from auth.auth_utils import is_admin_user, get_user_display_name
 from operations.demo_page import show_demo_page
 from config.page_config import set_page_config 
-from gdrive.config import HOSE_SHEET_NAME, SHELTER_SHEET_NAME, INSPECTIONS_SHELTER_SHEET_NAME, LOG_SHELTER_SHEET_NAME, SCBA_SHEET_NAME, SCBA_VISUAL_INSPECTIONS_SHEET_NAME
+from gdrive.config import HOSE_SHEET_NAME, SHELTER_SHEET_NAME, INSPECTIONS_SHELTER_SHEET_NAME, LOG_SHELTER_SHEET_NAME, SCBA_SHEET_NAME, SCBA_VISUAL_INSPECTIONS_SHEET_NAME, TH_SHIPMENT_LOG_SHEET_NAME
 from reports.reports_pdf import generate_shelters_html
 from operations.shelter_operations import save_shelter_action_log, save_shelter_inspection
 from operations.corrective_actions import save_corrective_action
@@ -22,7 +22,7 @@ from reports.reports_pdf import generate_shelters_html
 from operations.photo_operations import upload_evidence_photo
 from reports.monthly_report_ui import show_monthly_report_interface
 from operations.scba_operations import save_scba_visual_inspection, save_scba_action_log
-
+from reports.th_shipment_report import select_hoses_for_th, generate_shipment_html, log_th_shipment
 
 set_page_config()
 
@@ -442,10 +442,68 @@ def show_dashboard_page():
 
     with tab_hoses:
         st.header("Dashboard de Mangueiras de Incêndio")
+        
+        with st.expander("🚚 Gerar Remessa para Teste Hidrostático (TH)"):
+            st.info("O sistema selecionará automaticamente ~50% das mangueiras mais antigas que ainda não foram enviadas para teste este ano.")
+            
+            if st.button("Sugerir Mangueiras para Remessa"):
+                # Carrega os dados brutos necessários para a seleção
+                df_hoses_raw = load_sheet_data(HOSE_SHEET_NAME)
+                df_log_raw = load_sheet_data(TH_SHIPMENT_LOG_SHEET_NAME)
+                
+                selected_hoses = select_hoses_for_th(df_hoses_raw, df_log_raw)
+                
+                if selected_hoses.empty:
+                    st.success("🎉 Todas as mangueiras elegíveis já foram enviadas para teste este ano ou não há mangueiras cadastradas!")
+                else:
+                    st.write(f"**{len(selected_hoses)} mangueiras selecionadas para envio:**")
+                    st.dataframe(selected_hoses[['id_mangueira', 'marca', 'ano_fabricacao']], use_container_width=True)
+                    # Armazena a seleção no session_state para o próximo passo
+                    st.session_state['hoses_for_th_shipment'] = selected_hoses
+
+            # Mostra a segunda parte se houver uma seleção ativa
+            if 'hoses_for_th_shipment' in st.session_state and not st.session_state['hoses_for_th_shipment'].empty:
+                st.markdown("---")
+                st.subheader("Gerar Boletim de Remessa")
+                client_name = st.text_input("Nome do Cliente", value="VIBRA ENERGIA S.A")
+                bulletin_number = st.text_input("Número do Boletim/OS", value=f"TH-{date.today().strftime('%Y-%m')}")
+
+                if st.button("📄 Gerar e Registrar Boletim de Remessa", type="primary"):
+                    df_to_send = st.session_state['hoses_for_th_shipment']
+                    
+                    # 1. Gera o HTML para o PDF
+                    report_html = generate_shipment_html(df_to_send, client_name, get_user_display_name(), bulletin_number)
+                    
+                    # 2. Salva o log na planilha
+                    log_th_shipment(df_to_send, bulletin_number)
+                    
+                    # 3. Dispara a impressão
+                    js_code = f"""
+                        const reportHtml = {json.dumps(report_html)};
+                        const printWindow = window.open('', '_blank');
+                        if (printWindow) {{
+                            printWindow.document.write(reportHtml);
+                            printWindow.document.close();
+                            printWindow.focus();
+                            setTimeout(() => {{ printWindow.print(); printWindow.close(); }}, 500);
+                        }} else {{
+                            alert('Por favor, desabilite o bloqueador de pop-ups.');
+                        }}
+                    """
+                    streamlit_js_eval(js_expressions=js_code, key="print_shipment_js")
+                    
+                    st.success("Boletim de remessa gerado e log salvo! A seleção foi reiniciada.")
+                    # Limpa a seleção do session_state
+                    del st.session_state['hoses_for_th_shipment']
+                    st.cache_data.clear()
+                    st.rerun()
+        
+        st.markdown("---")
+        
         df_hoses_history = load_sheet_data(HOSE_SHEET_NAME)
 
         if df_hoses_history.empty:
-            st.warning("Ainda não há registros de inspeção de mangueiras para exibir.")
+            st.warning("Ainda não há registros de inspeção de mangueiras para exibir no dashboard.")
         else:
             dashboard_df_hoses = get_hose_status_df(df_hoses_history)
             
@@ -461,25 +519,17 @@ def show_dashboard_page():
             st.dataframe(
                 dashboard_df_hoses,
                 column_config={
-                    "id_mangueira": "ID",
-                    "status": "Status",
-                    "marca": "Marca",
-                    "diametro": "Diâmetro",
-                    "tipo": "Tipo",
-                    "comprimento": "Comprimento",
-                    "ano_fabricacao": "Ano Fab.",
-                    "data_inspecao": "Último Teste",
-                    "data_proximo_teste": "Próximo Teste",
-                    "registrado_por": "Registrado Por",
+                    "id_mangueira": "ID", "status": "Status", "marca": "Marca",
+                    "diametro": "Diâmetro", "tipo": "Tipo", "comprimento": "Comprimento",
+                    "ano_fabricacao": "Ano Fab.", "data_inspecao": "Último Teste",
+                    "data_proximo_teste": "Próximo Teste", "registrado_por": "Registrado Por",
                     "link_certificado_pdf": st.column_config.LinkColumn(
-                        "Certificado",
-                        display_text="🔗 Ver PDF"
+                        "Certificado", display_text="🔗 Ver PDF"
                     )
                 },
                 hide_index=True,
                 use_container_width=True
             )
-
     
     with tab_shelters:
         st.header("Dashboard de Status dos Abrigos de Emergência")

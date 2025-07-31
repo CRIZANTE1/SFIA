@@ -3,6 +3,20 @@ from datetime import date
 from gdrive.gdrive_upload import GoogleDriveUploader
 from gdrive.config import TH_SHIPMENT_LOG_SHEET_NAME, EXTINGUISHER_SHIPMENT_LOG_SHEET_NAME
 
+def get_image_base64_from_url(image_url):
+    """Baixa uma imagem de uma URL pública e a converte para base64."""
+    try:
+        file_id = image_url.split('/d/')[1].split('/')[0]
+        direct_download_url = f'https://drive.google.com/uc?export=download&id={file_id}'
+        
+        response = requests.get(direct_download_url, timeout=10)
+        response.raise_for_status()
+        b64_string = base64.b64encode(response.content).decode()
+        content_type = response.headers.get('Content-Type', 'image/png')
+        return f"data:{content_type};base64,{b64_string}"
+    except Exception:
+        return ""
+
 def log_shipment(df_selected_items, item_type, bulletin_number):
     """
     Salva o log dos itens enviados na planilha correspondente.

@@ -15,7 +15,12 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from auth.login_page import show_login_page, show_user_header, show_logout_button
 from auth.auth_utils import is_admin_user, get_user_display_name
 from operations.history import load_sheet_data
-from reports.shipment_report import generate_shipment_html_and_pdf log_shipment, select_extinguishers_for_maintenance, select_hoses_for_th
+from reports.shipment_report import (
+    generate_shipment_html_and_pdf, 
+    log_shipment, 
+    select_extinguishers_for_maintenance, 
+    select_hoses_for_th
+)
 from gdrive.config import EXTINGUISHER_SHEET_NAME, HOSE_SHEET_NAME, EXTINGUISHER_SHIPMENT_LOG_SHEET_NAME, TH_SHIPMENT_LOG_SHEET_NAME
 from operations.demo_page import show_demo_page
 from config.page_config import set_page_config 

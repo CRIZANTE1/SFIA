@@ -1,24 +1,21 @@
 import streamlit as st
+import pandas as pd
 from gdrive.gdrive_upload import GoogleDriveUploader
 from gdrive.config import ADMIN_SHEET_NAME
-import pandas as pd
 
 def is_oidc_available():
-    """Verifica se o login OIDC está configurado e disponível"""
     try:
         return hasattr(st.user, 'is_logged_in')
     except Exception:
         return False
 
 def is_user_logged_in():
-    """Verifica se o usuário está logado"""
     try:
         return st.user.is_logged_in
     except Exception:
         return False
 
 def get_user_display_name():
-    """Retorna o nome de exibição do usuário"""
     try:
         if hasattr(st.user, 'name'):
             return st.user.name
@@ -28,40 +25,77 @@ def get_user_display_name():
     except Exception:
         return "Usuário"
 
-@st.cache_data(ttl=600) # Cache para não verificar a planilha a cada interação
-def get_admin_users_by_name():
+
+def get_user_email() -> str | None:
+    """Retorna o e-mail do usuário logado, normalizado para minúsculas."""
+    try:
+        if hasattr(st.user, 'email') and st.user.email:
+            return st.user.email.lower().strip()
+        return None
+    except Exception:
+        return None
+
+@st.cache_data(ttl=600) # Cache de 10 minutos para a tabela de permissões
+def get_user_permissions_df() -> pd.DataFrame:
     """
-    Busca a lista de NOMES de administradores da planilha Google.
-    Retorna uma lista de nomes.
+    Carrega a lista de usuários e suas permissões da planilha 'adm'.
+    Retorna um DataFrame com as colunas 'email' e 'role'.
     """
     try:
         uploader = GoogleDriveUploader()
         admin_data = uploader.get_data_from_sheet(ADMIN_SHEET_NAME)
-        if not admin_data or len(admin_data) < 2:
-            st.warning("Aba de administradores não encontrada ou vazia na planilha.")
-            return []
         
-        df = pd.DataFrame(admin_data[1:], columns=admin_data[0])
-        if 'Nome' in df.columns:
-            return [str(name).strip() for name in df['Nome'].dropna() if name]
-        else:
-            st.error("A aba 'Admins' precisa de uma coluna chamada 'Nome'.")
-            return []
-    except Exception as e:
-        st.error(f"Erro ao buscar lista de administradores: {e}")
-        return []
+        if not admin_data or len(admin_data) < 2:
+            st.warning("Aba de administradores ('adm') não encontrada ou vazia.")
+            return pd.DataFrame(columns=['email', 'role'])
+        
+        permissions_df = pd.DataFrame(admin_data[1:], columns=admin_data[0])
+        
+        if 'email' not in permissions_df.columns or 'role' not in permissions_df.columns:
+            st.error("A aba 'adm' precisa conter as colunas 'email' e 'role'.")
+            return pd.DataFrame(columns=['email', 'role'])
+            
+        permissions_df['email'] = permissions_df['email'].str.lower().str.strip()
+        permissions_df['role'] = permissions_df['role'].str.lower().str.strip()
+            
+        return permissions_df[['email', 'role']]
 
-def is_admin_user():
+    except Exception as e:
+        st.error(f"Erro ao carregar permissões de usuário: {e}")
+        return pd.DataFrame(columns=['email', 'role'])
+
+def get_user_role() -> str:
     """
-    Verifica se o NOME do usuário logado atualmente está na lista de administradores.
+    Retorna o papel (role) do usuário logado.
+    O padrão para usuários não listados é 'viewer' (ou 'demo').
     """
-    user_name = get_user_display_name()
-    if not user_name or user_name == "Usuário":
-        return False
+    user_email = get_user_email()
+    if not user_email:
+        return 'viewer' # Padrão para não logado
+
+    permissions_df = get_user_permissions_df()
+    if permissions_df.empty:
+        return 'viewer'
+
+    user_entry = permissions_df[permissions_df['email'] == user_email]
     
-    admin_list = get_admin_users_by_name()
-    # Compara o nome do usuário com a lista de nomes de administradores
-    return user_name.strip() in admin_list
+    if not user_entry.empty:
+        return user_entry.iloc[0]['role']
+    
+    return 'viewer' # Padrão para usuários logados mas não na lista 'adm'
+
+
+def is_admin() -> bool:
+    """Verifica se o usuário tem o papel de 'admin'."""
+    return get_user_role() == 'admin'
+
+def can_edit() -> bool:
+    """Verifica se o usuário pode editar (admin ou editor)."""
+    return get_user_role() in ['admin', 'editor']
+
+def can_view() -> bool:
+    """Verifica se o usuário pode visualizar (qualquer papel)."""
+    return get_user_role() in ['admin', 'editor', 'viewer']
 
 
 

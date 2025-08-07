@@ -7,7 +7,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from operations.history import load_sheet_data
 from auth.login_page import show_login_page, show_user_header, show_logout_button
-from auth.auth_utils import is_admin_user
+from auth.auth_utils import is_admin, can_edit, can_view
 from operations.demo_page import show_demo_page
 from config.page_config import set_page_config 
 
@@ -100,7 +100,7 @@ def show_map_page():
 # --- Boilerplate de Autenticação ---
 if not show_login_page(): st.stop()
 show_user_header(); show_logout_button()
-if is_admin_user():
+if can_edit():
     st.sidebar.success("✅ Acesso completo")
     show_map_page()
 else:

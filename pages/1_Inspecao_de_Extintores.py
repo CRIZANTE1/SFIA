@@ -15,7 +15,7 @@ from operations.qr_inspection_utils import decode_qr_from_image
 from operations.photo_operations import upload_evidence_photo
 from gdrive.gdrive_upload import GoogleDriveUploader
 from auth.login_page import show_login_page, show_user_header, show_logout_button
-from auth.auth_utils import is_admin_user, get_user_display_name
+from auth.auth_utils import is_admin, can_edit, can_view 
 from operations.demo_page import show_demo_page
 from config.page_config import set_page_config 
 
@@ -299,7 +299,7 @@ def main_inspection_page():
 # --- Boilerplate ---
 if not show_login_page(): st.stop()
 show_user_header(); show_logout_button()
-if is_admin_user():
+if can_edit():
     st.sidebar.success("✅ Acesso completo")
     main_inspection_page()
 else:

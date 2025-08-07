@@ -11,7 +11,7 @@ from streamlit_js_eval import streamlit_js_eval
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from operations.history import load_sheet_data, find_last_record
 from auth.login_page import show_login_page, show_user_header, show_logout_button
-from auth.auth_utils import is_admin_user, get_user_display_name
+from auth.auth_utils import is_admin, can_edit, can_view
 from operations.demo_page import show_demo_page
 from config.page_config import set_page_config 
 from gdrive.config import HOSE_SHEET_NAME, SHELTER_SHEET_NAME, INSPECTIONS_SHELTER_SHEET_NAME, LOG_SHELTER_SHEET_NAME, SCBA_SHEET_NAME, SCBA_VISUAL_INSPECTIONS_SHEET_NAME
@@ -655,7 +655,7 @@ def show_dashboard_page():
 # --- Boilerplate de Autenticação ---
 if not show_login_page(): st.stop()
 show_user_header(); show_logout_button()
-if is_admin_user():
+if can_edit():
     st.sidebar.success("✅ Acesso completo")
     show_dashboard_page()
 else:

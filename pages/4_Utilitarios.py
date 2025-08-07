@@ -13,7 +13,7 @@ from streamlit_js_eval import streamlit_js_eval
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from auth.login_page import show_login_page, show_user_header, show_logout_button
-from auth.auth_utils import is_admin_user, get_user_display_name
+from auth.auth_utils import is_admin, can_edit, can_view
 from operations.history import load_sheet_data
 from reports.shipment_report import (
     generate_shipment_html_and_pdf, 
@@ -219,7 +219,7 @@ if not show_login_page():
     st.stop()
 show_user_header()
 show_logout_button()
-if is_admin_user():
+if can_edit():
     st.sidebar.success("✅ Acesso completo")
     show_utilities_page()
 else:

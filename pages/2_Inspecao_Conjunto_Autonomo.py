@@ -11,7 +11,7 @@ from gdrive.gdrive_upload import GoogleDriveUploader
 from AI.api_Operation import PDFQA
 from utils.prompts import get_scba_inspection_prompt, get_air_quality_prompt 
 from auth.login_page import show_login_page, show_user_header, show_logout_button
-from auth.auth_utils import is_admin, can_edit, can_view
+from auth.auth_utils import is_admin, can_edit, can_view, get_user_display_name 
 from operations.demo_page import show_demo_page
 from config.page_config import set_page_config
 from operations.history import load_sheet_data

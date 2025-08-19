@@ -15,7 +15,7 @@ from operations.qr_inspection_utils import decode_qr_from_image
 from operations.photo_operations import upload_evidence_photo
 from gdrive.gdrive_upload import GoogleDriveUploader
 from auth.login_page import show_login_page, show_user_header, show_logout_button
-from auth.auth_utils import is_admin, can_edit, can_view 
+from auth.auth_utils import is_admin, can_edit, can_view, get_user_display_name 
 from operations.demo_page import show_demo_page
 from config.page_config import set_page_config 
 

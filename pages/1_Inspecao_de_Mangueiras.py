@@ -17,7 +17,7 @@ from gdrive.config import SHELTER_SHEET_NAME
 from operations.history import load_sheet_data 
 from utils.prompts import get_hose_inspection_prompt, get_shelter_inventory_prompt
 from auth.login_page import show_login_page, show_user_header, show_logout_button
-from auth.auth_utils import is_admin, can_edit, can_view 
+from auth.auth_utils import is_admin, can_edit, can_view, get_user_display_name 
 from operations.demo_page import show_demo_page
 from config.page_config import set_page_config
 

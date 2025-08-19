@@ -9,7 +9,7 @@ set_page_config()
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from operations.history import load_sheet_data
 from auth.login_page import show_login_page, show_user_header, show_logout_button
-from auth.auth_utils import is_admin, can_edit, can_view
+from auth.auth_utils import is_admin, can_edit, can_view, get_user_display_name 
 from operations.demo_page import show_demo_page
 from gdrive.config import (
     EXTINGUISHER_SHEET_NAME, HOSE_SHEET_NAME, SHELTER_SHEET_NAME,
